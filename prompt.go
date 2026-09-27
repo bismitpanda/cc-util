@@ -159,14 +159,14 @@ func promptSelectFromAccounts(names []string, emptyMsg string) string {
 func promptSelectEnabledAccount() string {
 	return promptSelectFromAccounts(
 		listEnabledAccountNames(),
-		fmt.Sprintf("No enabled accounts. Run: %s (or %s)", binCmd("switch save <name>"), binCmd("switch enable <name>")),
+		fmt.Sprintf("No enabled accounts. Run: %s (or %s)", binCmd("accounts save <name>"), binCmd("accounts enable <name>")),
 	)
 }
 
 func promptSelectAnyAccount() string {
 	return promptSelectFromAccounts(
 		listAccountNames(),
-		fmt.Sprintf("No saved accounts yet. Run: %s", binCmd("switch save <name>")),
+		fmt.Sprintf("No saved accounts yet. Run: %s", binCmd("accounts save <name>")),
 	)
 }
 

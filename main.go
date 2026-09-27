@@ -74,23 +74,24 @@ func newRootCmd() *cobra.Command {
 		},
 	}
 
-	switchCmd := &cobra.Command{
-		Use:   "switch",
-		Short: "Switch the active Claude Code account",
-		Long:  "Snapshots Claude Code OAuth credentials and restores them when you switch accounts.",
+	accountsCmd := &cobra.Command{
+		Use:     "accounts",
+		Aliases: []string{"acc", "account"},
+		Short:   "Manage Claude Code accounts",
+		Long:    "Manage saved Claude Code accounts: save the logged-in account, switch to another, and list, rename, disable, or inspect them.",
 		Example: fmt.Sprintf(`
   # First-time setup for multiple accounts:
   claude auth login               # login with account A
-  %s switch save personal
+  %s accounts save personal
   claude auth logout
   claude auth login               # login with account B
-  %s switch save work
-  %s switch use personal     # switch without another browser login
-  %s switch use work
+  %s accounts save work
+  %s accounts use personal     # switch without another browser login
+  %s accounts use work
 `, bin, bin, bin, bin),
 	}
 
-	switchCmd.AddCommand(
+	accountsCmd.AddCommand(
 		&cobra.Command{
 			Use:   "save [name]",
 			Short: "Snapshot the currently logged-in account",
@@ -190,7 +191,7 @@ func newRootCmd() *cobra.Command {
 		newTokensCmd(),
 	)
 
-	root.AddCommand(switchCmd)
+	root.AddCommand(accountsCmd)
 
 	return root
 }

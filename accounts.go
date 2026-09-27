@@ -251,7 +251,7 @@ func requireExistingAccount(name string) string {
 func requireEnabledAccount(name string) string {
 	name = requireExistingAccount(name)
 	if isAccountDisabled(name) {
-		fatalf("Account '%s' is disabled. Run: %s", name, binCmd("switch enable "+name))
+		fatalf("Account '%s' is disabled. Run: %s", name, binCmd("accounts enable "+name))
 	}
 	return name
 }
@@ -308,7 +308,7 @@ func activeSavedAccountName() (string, bool) {
 func syncActiveSnapshot() (string, error) {
 	name, ok := activeSavedAccountName()
 	if !ok {
-		return "", fmt.Errorf("active account is not saved — run: %s", binCmd("switch save <name>"))
+		return "", fmt.Errorf("active account is not saved — run: %s", binCmd("accounts save <name>"))
 	}
 	oauth, claudeAiOauth, err := liveCredentials()
 	if err != nil {
@@ -323,7 +323,7 @@ func syncActiveSnapshot() (string, error) {
 func cmdSave(name string) {
 	if name == "" {
 		if !isInteractive() {
-			fatalf("Usage: %s", binCmd("switch save <name>"))
+			fatalf("Usage: %s", binCmd("accounts save <name>"))
 		}
 		name = promptSaveName()
 	} else {
@@ -349,13 +349,13 @@ func cmdSync() {
 }
 
 func cmdUse(name string) {
-	name = resolveAccountName(name, binCmd("switch use <name>"))
+	name = resolveAccountName(name, binCmd("accounts use <name>"))
 	snapPath := accountSnapPath(name)
 	if _, err := os.Stat(snapPath); os.IsNotExist(err) {
-		fatalf("No saved account called '%s'. Run: %s (while logged into it)", name, binCmd("switch save "+name))
+		fatalf("No saved account called '%s'. Run: %s (while logged into it)", name, binCmd("accounts save "+name))
 	}
 	if isAccountDisabled(name) {
-		fatalf("Account '%s' is disabled. Run: %s", name, binCmd("switch enable "+name))
+		fatalf("Account '%s' is disabled. Run: %s", name, binCmd("accounts enable "+name))
 	}
 
 	from, _ := activeSavedAccountName()
@@ -430,7 +430,7 @@ func cmdHistory() {
 }
 
 func cmdRemove(name string) {
-	name = resolveAnyAccountName(name, binCmd("switch remove <name>"))
+	name = resolveAnyAccountName(name, binCmd("accounts remove <name>"))
 	snapPath := accountSnapPath(name)
 	if err := os.Remove(snapPath); err != nil {
 		if os.IsNotExist(err) {
@@ -442,7 +442,7 @@ func cmdRemove(name string) {
 }
 
 func cmdDisable(name string) {
-	name = resolveAccountName(name, binCmd("switch disable <name>"))
+	name = resolveAccountName(name, binCmd("accounts disable <name>"))
 	name = requireEnabledAccount(name)
 	if err := setAccountDisabled(name, true); err != nil {
 		fatalf("could not disable %s: %v", name, err)
@@ -451,7 +451,7 @@ func cmdDisable(name string) {
 }
 
 func cmdEnable(name string) {
-	name = resolveDisabledAccountName(name, binCmd("switch enable <name>"))
+	name = resolveDisabledAccountName(name, binCmd("accounts enable <name>"))
 	name = requireExistingAccount(name)
 	if !isAccountDisabled(name) {
 		fatalf("Account '%s' is not disabled", name)
@@ -465,7 +465,7 @@ func cmdEnable(name string) {
 func cmdRename(oldName, newName string) {
 	if oldName == "" {
 		if !isInteractive() {
-			fatalf("Usage: %s", binCmd("switch rename <old> <new>"))
+			fatalf("Usage: %s", binCmd("accounts rename <old> <new>"))
 		}
 		oldName = promptSelectAnyAccount()
 	} else {
@@ -473,7 +473,7 @@ func cmdRename(oldName, newName string) {
 	}
 	if newName == "" {
 		if !isInteractive() {
-			fatalf("Usage: %s", binCmd("switch rename <old> <new>"))
+			fatalf("Usage: %s", binCmd("accounts rename <old> <new>"))
 		}
 		newName = promptAccountName("work")
 	} else {

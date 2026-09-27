@@ -4,15 +4,15 @@
 #   curl -fsSL https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.sh | sh
 #
 # Optional env:
-#   CC_SWITCH_VERSION      Pin a release tag (e.g. v1.1.1). Default: latest.
-#   CC_SWITCH_INSTALL_DIR  Install directory. Default: ~/.local/bin
+#   CC_UTIL_VERSION      Pin a release tag (e.g. v1.1.1). Default: latest.
+#   CC_UTIL_INSTALL_DIR  Install directory. Default: ~/.local/bin
 
 set -eu
 
 REPO="bismitpanda/cc-util"
 BINARIES="cc-util ccu"
-INSTALL_DIR="${CC_SWITCH_INSTALL_DIR:-${HOME}/.local/bin}"
-VERSION="${CC_SWITCH_VERSION:-}"
+INSTALL_DIR="${CC_UTIL_INSTALL_DIR:-${HOME}/.local/bin}"
+VERSION="${CC_UTIL_VERSION:-}"
 
 info() { printf '%s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -89,10 +89,10 @@ if [ -z "$VERSION" ]; then
 	VERSION="$(resolve_latest | tr -d '[:space:]')" || true
 	if [ -z "$VERSION" ]; then
 		json="$(fetch_body "https://api.github.com/repos/${REPO}/releases/latest")" || \
-			die "could not resolve latest release; set CC_SWITCH_VERSION"
+			die "could not resolve latest release; set CC_UTIL_VERSION"
 		VERSION="$(printf '%s' "$json" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
 	fi
-	[ -n "$VERSION" ] || die "could not resolve latest release; set CC_SWITCH_VERSION"
+	[ -n "$VERSION" ] || die "could not resolve latest release; set CC_UTIL_VERSION"
 fi
 
 case "$VERSION" in

@@ -1,8 +1,8 @@
 # cc-util
 
-CLI to switch between Claude Code accounts without logging in again.
+Utilities for Claude Code.
 
-Snapshots the active OAuth credentials, then restores them when you switch. Saved under `~/.cc-util/accounts/`.
+Manage saved accounts: save the logged-in account, switch to another, and list, rename, disable, or inspect them. Account data is stored under `~/.cc-util/accounts/`.
 
 > **macOS is not supported yet.** Claude Code stores its OAuth credentials in the macOS Keychain there instead of `~/.claude/.credentials.json`, and cc-util only reads/writes that file. Linux and Windows are unaffected — Claude Code uses `.credentials.json` on both.
 
@@ -24,12 +24,12 @@ irm https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.ps1 | iex
 
 Re-running either script upgrades both binaries (same install path). `ccu` is the same CLI as `cc-util`. Defaults:
 
-| Platform | Install location                                                         |
-| -------- | ------------------------------------------------------------------------ |
-| Linux    | `~/.local/bin/cc-util` and `~/.local/bin/ccu`                            |
-| Windows  | `%LOCALAPPDATA%\Programs\cc-util\cc-util.exe` and `ccu.exe`              |
+| Platform | Install location                                            |
+| -------- | ----------------------------------------------------------- |
+| Linux    | `~/.local/bin/cc-util` and `~/.local/bin/ccu`               |
+| Windows  | `%LOCALAPPDATA%\Programs\cc-util\cc-util.exe` and `ccu.exe` |
 
-Optional env overrides: `CC_SWITCH_VERSION` (e.g. `v1.1.1`), `CC_SWITCH_INSTALL_DIR`.
+Optional env overrides: `CC_UTIL_VERSION` (e.g. `v1.1.1`), `CC_UTIL_INSTALL_DIR`.
 
 ### Manual / other
 
@@ -56,23 +56,25 @@ Requires [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`
 
 ## Commands
 
-| Command                             | Description                                           |
-| ----------------------------------- | ----------------------------------------------------- |
-| `cc-util switch save [name]`        | Snapshot the currently logged-in account              |
-| `cc-util switch sync`               | Update the active account's snapshot from live creds  |
-| `cc-util switch use [name]`         | Switch to a saved account                             |
-| `cc-util switch disable [name]`     | Disable an account (keeps it, skips usage/use)        |
-| `cc-util switch enable [name]`      | Re-enable a disabled account                          |
-| `cc-util switch remove [name]`      | Delete a saved account                                |
-| `cc-util switch rename [old] [new]` | Rename a saved account                                |
-| `cc-util switch list`               | List saved accounts                                   |
-| `cc-util switch history`            | Show account switch history                           |
-| `cc-util switch whoami`             | Show the active account                               |
-| `cc-util switch status`             | Show credential validity and expiry                   |
-| `cc-util switch usage [name]`       | Show rate-limit usage (all accounts, or a named one)  |
-| `cc-util switch tokens [name]`      | Show Claude Code token usage by account (local JSONL) |
-| `cc-util completion <shell>`        | Print a completion script for Bash, Fish, or Zsh      |
-| `cc-util help`                      | Show help                                             |
+| Command                               | Description                                           |
+| ------------------------------------- | ----------------------------------------------------- |
+| `cc-util accounts save [name]`        | Snapshot the currently logged-in account              |
+| `cc-util accounts sync`               | Update the active account's snapshot from live creds  |
+| `cc-util accounts use [name]`         | Switch to a saved account                             |
+| `cc-util accounts disable [name]`     | Disable an account (keeps it, skips usage/use)        |
+| `cc-util accounts enable [name]`      | Re-enable a disabled account                          |
+| `cc-util accounts remove [name]`      | Delete a saved account                                |
+| `cc-util accounts rename [old] [new]` | Rename a saved account                                |
+| `cc-util accounts list`               | List saved accounts                                   |
+| `cc-util accounts history`            | Show account switch history                           |
+| `cc-util accounts whoami`             | Show the active account                               |
+| `cc-util accounts status`             | Show credential validity and expiry                   |
+| `cc-util accounts usage [name]`       | Show rate-limit usage (all accounts, or a named one)  |
+| `cc-util accounts tokens [name]`      | Show Claude Code token usage by account (local JSONL) |
+| `cc-util completion <shell>`          | Print a completion script for Bash, Fish, or Zsh      |
+| `cc-util help`                        | Show help                                             |
+
+`acc` and `account` are aliases for `accounts`.
 
 `tokens` attributes usage from Claude Code project JSONL logs using `~/.cc-util/switches.jsonl`. It also shows cumulative active time per account from that switch history (last segment runs until now). Pass `--spend` for estimated USD cost, or `-A` / `--active` for the active account only.
 
@@ -138,14 +140,14 @@ exec fish
 
 ```bash
 claude auth login          # account A
-cc-util switch save personal
+cc-util accounts save personal
 
 claude auth logout
 claude auth login          # account B
-cc-util switch save work
+cc-util accounts save work
 
-cc-util switch use personal     # switch without another browser login
-cc-util switch use work
+cc-util accounts use personal     # switch without another browser login
+cc-util accounts use work
 ```
 
 ## How it works

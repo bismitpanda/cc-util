@@ -3,8 +3,8 @@
 #   irm https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.ps1 | iex
 #
 # Optional env:
-#   CC_SWITCH_VERSION      Pin a release tag (e.g. v1.1.1). Default: latest.
-#   CC_SWITCH_INSTALL_DIR  Install directory. Default: %LOCALAPPDATA%\Programs\cc-util
+#   CC_UTIL_VERSION      Pin a release tag (e.g. v1.1.1). Default: latest.
+#   CC_UTIL_INSTALL_DIR  Install directory. Default: %LOCALAPPDATA%\Programs\cc-util
 
 $ErrorActionPreference = 'Stop'
 
@@ -20,14 +20,14 @@ function Die([string]$Message) {
     exit 1
 }
 
-$InstallDir = if ($env:CC_SWITCH_INSTALL_DIR -and $env:CC_SWITCH_INSTALL_DIR.Trim() -ne '') {
-    $env:CC_SWITCH_INSTALL_DIR.Trim()
+$InstallDir = if ($env:CC_UTIL_INSTALL_DIR -and $env:CC_UTIL_INSTALL_DIR.Trim() -ne '') {
+    $env:CC_UTIL_INSTALL_DIR.Trim()
 } else {
     Join-Path $env:LOCALAPPDATA 'Programs\cc-util'
 }
 
-$Version = if ($env:CC_SWITCH_VERSION -and $env:CC_SWITCH_VERSION.Trim() -ne '') {
-    $env:CC_SWITCH_VERSION.Trim()
+$Version = if ($env:CC_UTIL_VERSION -and $env:CC_UTIL_VERSION.Trim() -ne '') {
+    $env:CC_UTIL_VERSION.Trim()
 } else {
     ''
 }
@@ -50,12 +50,12 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
         $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers
         $Version = [string]$release.tag_name
     } catch {
-        Die "could not resolve latest release; set CC_SWITCH_VERSION ($($_.Exception.Message))"
+        Die "could not resolve latest release; set CC_UTIL_VERSION ($($_.Exception.Message))"
     }
 }
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    Die 'could not resolve latest release; set CC_SWITCH_VERSION'
+    Die 'could not resolve latest release; set CC_UTIL_VERSION'
 }
 
 if (-not $Version.StartsWith('v')) {
