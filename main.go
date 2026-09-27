@@ -37,6 +37,7 @@ func newRootCmd() *cobra.Command {
 		},
 	}
 	cli.Bin = bin
+	root.PersistentFlags().BoolVar(&cli.JSON, "json", false, "Output machine-readable JSON instead of formatted text")
 	root.AddCommand(accounts.Command(), projects.Command(), memory.Command(), paths.Command())
 	return root
 }

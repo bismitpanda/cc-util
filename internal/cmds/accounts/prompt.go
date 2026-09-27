@@ -18,6 +18,9 @@ import (
 var accountNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 func isInteractive() bool {
+	if cli.JSON {
+		return false
+	}
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
 }
 

@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/bismitpanda/cc-util/internal/cli"
 	"github.com/charmbracelet/colorprofile"
 	"golang.org/x/term"
 	"golang.org/x/text/cases"
@@ -88,8 +90,22 @@ func PrintError(name, msg string) {
 }
 
 func Fatalf(format string, args ...any) {
-	PrintError("", fmt.Sprintf(format, args...))
+	msg := fmt.Sprintf(format, args...)
+	if cli.JSON {
+		data, _ := json.Marshal(map[string]string{"error": msg})
+		fmt.Fprintln(os.Stderr, string(data))
+		os.Exit(1)
+	}
+	PrintError("", msg)
 	os.Exit(1)
+}
+
+func PrintJSON(v any) {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		Fatalf("could not encode JSON: %v", err)
+	}
 }
 
 var whoamiFields = []struct {

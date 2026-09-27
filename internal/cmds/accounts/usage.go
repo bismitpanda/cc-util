@@ -13,6 +13,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/bismitpanda/cc-util/internal/claude"
+	"github.com/bismitpanda/cc-util/internal/cli"
 	"github.com/bismitpanda/cc-util/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
@@ -662,9 +663,77 @@ func usageResultUnavailable(res accountUsageResult) bool {
 	return res.err != nil || coreUsageExhausted(res.limits)
 }
 
+type usageLimitJSON struct {
+	Label    string  `json:"label"`
+	Kind     string  `json:"kind,omitempty"`
+	Percent  float64 `json:"percent"`
+	Severity string  `json:"severity,omitempty"`
+	Active   bool    `json:"active"`
+	ResetsAt string  `json:"resetsAt,omitempty"`
+}
+
+type usageAccountJSON struct {
+	Name      string           `json:"name"`
+	Active    bool             `json:"active"`
+	Available bool             `json:"available"`
+	Error     string           `json:"error,omitempty"`
+	Limits    []usageLimitJSON `json:"limits,omitempty"`
+}
+
+func toUsageJSON(res accountUsageResult) usageAccountJSON {
+	out := usageAccountJSON{Name: res.name}
+	if res.err != nil {
+		out.Error = res.err.Error()
+		return out
+	}
+	out.Available = !coreUsageExhausted(res.limits)
+	for _, l := range res.limits {
+		out.Limits = append(out.Limits, usageLimitJSON{
+			Label:    l.Label,
+			Kind:     l.Kind,
+			Percent:  l.Percent,
+			Severity: l.Severity,
+			Active:   l.Active,
+			ResetsAt: l.ResetsAt,
+		})
+	}
+	return out
+}
+
+func printUsageJSON(opts usageOptions, activeRes *accountUsageResult, usable, unavailable []accountUsageResult) {
+	var all []accountUsageResult
+	if activeRes != nil {
+		all = append(all, *activeRes)
+	}
+	all = append(all, usable...)
+	all = append(all, unavailable...)
+
+	out := []usageAccountJSON{}
+	for _, res := range all {
+		if opts.availableOnly && usageResultUnavailable(res) {
+			continue
+		}
+		if opts.unavailableOnly && !usageResultUnavailable(res) {
+			continue
+		}
+		entry := toUsageJSON(res)
+		entry.Active = activeRes != nil && res.name == activeRes.name
+		out = append(out, entry)
+	}
+	ui.PrintJSON(out)
+}
+
 func cmdUsage(name string, opts usageOptions) {
 	if name != "" && opts.activeOnly {
 		ui.Fatalf("cannot combine an account name with --active")
+	}
+
+	emptyResult := func(msg string) {
+		if cli.JSON {
+			ui.PrintJSON([]usageAccountJSON{})
+			return
+		}
+		ui.PrintMuted(msg)
 	}
 
 	var names []string
@@ -672,11 +741,11 @@ func cmdUsage(name string, opts usageOptions) {
 	case opts.activeOnly:
 		activeName, ok := ActiveSavedAccountName()
 		if !ok {
-			ui.PrintMuted("(no active saved account)")
+			emptyResult("(no active saved account)")
 			return
 		}
 		if isAccountDisabled(activeName) {
-			ui.PrintMuted(fmt.Sprintf("(active account %s is disabled)", activeName))
+			emptyResult(fmt.Sprintf("(active account %s is disabled)", activeName))
 			return
 		}
 		names = []string{activeName}
@@ -684,9 +753,9 @@ func cmdUsage(name string, opts usageOptions) {
 		names = listEnabledAccountNames()
 		if len(names) == 0 {
 			if len(listAccountNames()) == 0 {
-				ui.PrintMuted("(no saved accounts yet)")
+				emptyResult("(no saved accounts yet)")
 			} else {
-				ui.PrintMuted("(no enabled accounts — all saved accounts are disabled)")
+				emptyResult("(no enabled accounts — all saved accounts are disabled)")
 			}
 			return
 		}
@@ -739,6 +808,11 @@ func cmdUsage(name string, opts usageOptions) {
 			continue
 		}
 		usable = append(usable, res)
+	}
+
+	if cli.JSON {
+		printUsageJSON(opts, activeRes, usable, unavailable)
+		return
 	}
 
 	switch {

@@ -11,6 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/bismitpanda/cc-util/internal/claude"
+	"github.com/bismitpanda/cc-util/internal/cli"
 	"github.com/bismitpanda/cc-util/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -130,6 +131,13 @@ func cmdMemory(project string, long bool) {
 	if err != nil {
 		ui.Fatalf("%v", err)
 	}
+	if cli.JSON {
+		if list == nil {
+			list = []claude.Memory{}
+		}
+		ui.PrintJSON(list)
+		return
+	}
 	if len(list) == 0 {
 		ui.PrintMuted("(no memories)")
 		return
@@ -175,10 +183,31 @@ func formatModified(t time.Time) string {
 	return t.Local().Format("Jan 2, 2006 3:04 PM")
 }
 
+type memoryPageJSON struct {
+	Title       string `json:"title,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
+	Modified    string `json:"modified,omitempty"`
+	Body        string `json:"body,omitempty"`
+}
+
 func cmdShow(project, name string) {
 	page, err := claude.ReadMemory(project, name)
 	if err != nil {
 		ui.Fatalf("%v", err)
+	}
+	if cli.JSON {
+		out := memoryPageJSON{
+			Title:       page.Title,
+			Type:        page.Type,
+			Description: page.Description,
+			Body:        page.Body,
+		}
+		if !page.Modified.IsZero() {
+			out.Modified = page.Modified.Format(time.RFC3339)
+		}
+		ui.PrintJSON(out)
+		return
 	}
 	ui.InitStyles()
 	if page.Title != "" {
@@ -231,6 +260,13 @@ func cmdIssues() {
 	list, err := claude.ListMemoryIssues()
 	if err != nil {
 		ui.Fatalf("%v", err)
+	}
+	if cli.JSON {
+		if list == nil {
+			list = []claude.MemoryIssue{}
+		}
+		ui.PrintJSON(list)
+		return
 	}
 	if len(list) == 0 {
 		ui.PrintMuted("(no memory issues)")

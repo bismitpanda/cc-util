@@ -7,6 +7,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/bismitpanda/cc-util/internal/cli"
 	"github.com/bismitpanda/cc-util/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,29 @@ type statusOptions struct {
 
 func rowHasExpiredToken(row authStatusRow) bool {
 	return row.access.state == tokenStateExpired || row.refresh.state == tokenStateExpired
+}
+
+func (s tokenState) String() string {
+	switch s {
+	case tokenStateValid:
+		return "valid"
+	case tokenStateExpired:
+		return "expired"
+	default:
+		return "missing"
+	}
+}
+
+type tokenStatusJSON struct {
+	State string `json:"state"`
+	Text  string `json:"text"`
+}
+
+type authStatusJSON struct {
+	Account string          `json:"account"`
+	Active  bool            `json:"active"`
+	Access  tokenStatusJSON `json:"accessToken"`
+	Refresh tokenStatusJSON `json:"refreshToken"`
 }
 
 func cmdStatus(opts statusOptions) {
@@ -81,6 +105,20 @@ func cmdStatus(opts statusOptions) {
 		if !opts.expiredOnly || rowHasExpiredToken(row) {
 			rows = append(rows, row)
 		}
+	}
+
+	if cli.JSON {
+		out := make([]authStatusJSON, len(rows))
+		for i, row := range rows {
+			out[i] = authStatusJSON{
+				Account: row.account,
+				Active:  row.active,
+				Access:  tokenStatusJSON{State: row.access.state.String(), Text: row.access.text},
+				Refresh: tokenStatusJSON{State: row.refresh.state.String(), Text: row.refresh.text},
+			}
+		}
+		ui.PrintJSON(out)
+		return
 	}
 
 	if len(rows) == 0 {

@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/bismitpanda/cc-util/internal/claude"
+	"github.com/bismitpanda/cc-util/internal/cli"
 	"github.com/bismitpanda/cc-util/internal/cmds/accounts"
 	"github.com/bismitpanda/cc-util/internal/ui"
 	"github.com/spf13/cobra"
@@ -35,6 +36,10 @@ func cmdProjects(long bool) {
 		ui.Fatalf("%v", err)
 	}
 	if len(list) == 0 {
+		if cli.JSON {
+			ui.PrintJSON([]projectJSON{})
+			return
+		}
 		ui.PrintMuted("(no projects)")
 		return
 	}
@@ -50,9 +55,35 @@ func cmdProjects(long bool) {
 			token, _ = accounts.EnsureAccountAccessToken(name)
 		}
 		names, err = claude.LoadModelNames(token, ids)
-		if err != nil {
+		if err != nil && !cli.JSON {
 			ui.PrintMuted(fmt.Sprintf("could not refresh model names (%v); using the cached list", err))
 		}
+	}
+
+	if cli.JSON {
+		out := make([]projectJSON, len(list))
+		for i, p := range list {
+			out[i] = projectJSON{
+				Path:          p.Path,
+				OnDisk:        p.OnDisk,
+				Trusted:       p.Trusted,
+				LastSessionID: p.LastSessionID,
+				LinesAdded:    p.LinesAdded,
+				LinesRemoved:  p.LinesRemoved,
+				Cost:          p.LastCost,
+				MCPServers:    p.MCPServers,
+			}
+			if !p.LastStart.IsZero() {
+				out[i].LastStart = p.LastStart.Format(time.RFC3339)
+			}
+			if long {
+				out[i].Models = modelNamesList(p.Models, names)
+			} else {
+				out[i].Models = p.Models
+			}
+		}
+		ui.PrintJSON(out)
+		return
 	}
 
 	rows := make([][]string, len(list))
@@ -95,6 +126,33 @@ func cmdProjects(long bool) {
 		Headers(headers...).
 		Rows(rows...)
 	lipgloss.Println(t)
+}
+
+type projectJSON struct {
+	Path          string   `json:"path"`
+	OnDisk        bool     `json:"onDisk"`
+	Trusted       bool     `json:"trusted"`
+	LastStart     string   `json:"lastStart,omitempty"`
+	LastSessionID string   `json:"lastSessionId,omitempty"`
+	Models        []string `json:"models,omitempty"`
+	LinesAdded    int      `json:"linesAdded"`
+	LinesRemoved  int      `json:"linesRemoved"`
+	Cost          *float64 `json:"cost,omitempty"`
+	MCPServers    int      `json:"mcpServers"`
+}
+
+func modelNamesList(models []string, names map[string]string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, id := range models {
+		name, ok := claude.DisplayModel(id, names)
+		if !ok || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	return out
 }
 
 func yesNo(v bool) string {

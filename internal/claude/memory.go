@@ -16,12 +16,12 @@ import (
 )
 
 type Memory struct {
-	Project     string
-	Name        string
-	Slug        string
-	File        string
-	Type        string
-	Description string
+	Project     string `json:"project"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug,omitempty"`
+	File        string `json:"file"`
+	Type        string `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 type MemoryPage struct {
@@ -42,9 +42,9 @@ type memoryFile struct {
 }
 
 type MemoryIssue struct {
-	Project string
-	Kind    string
-	Name    string
+	Project string `json:"project"`
+	Kind    string `json:"kind"`
+	Name    string `json:"name"`
 }
 
 func ListMemories(projectPath string) ([]Memory, error) {

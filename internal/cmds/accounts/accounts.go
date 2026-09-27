@@ -289,6 +289,13 @@ func syncActiveSnapshot() (string, error) {
 	return name, nil
 }
 
+type actionResult struct {
+	Status  string `json:"status"`
+	Account string `json:"account,omitempty"`
+	From    string `json:"from,omitempty"`
+	To      string `json:"to,omitempty"`
+}
+
 func cmdSave(name string) {
 	if name == "" {
 		if !isInteractive() {
@@ -306,6 +313,10 @@ func cmdSave(name string) {
 	if err := writeAccountSnapshot(name, oauth, claudeAiOauth); err != nil {
 		ui.Fatalf("could not write %s: %v", accountSnapPath(name), err)
 	}
+	if cli.JSON {
+		ui.PrintJSON(actionResult{Status: "saved", Account: name})
+		return
+	}
 	ui.PrintSuccess(fmt.Sprintf("Saved the currently logged-in account as %s.", ui.AccountStyle.Render(name)))
 }
 
@@ -313,6 +324,10 @@ func cmdSync() {
 	name, err := syncActiveSnapshot()
 	if err != nil {
 		ui.Fatalf("%v", err)
+	}
+	if cli.JSON {
+		ui.PrintJSON(actionResult{Status: "synced", Account: name})
+		return
 	}
 	ui.PrintSuccess(fmt.Sprintf("Synced live credentials into %s.", ui.AccountStyle.Render(name)))
 }
@@ -329,6 +344,10 @@ func cmdUse(name string) {
 
 	from, _ := ActiveSavedAccountName()
 	if from == name {
+		if cli.JSON {
+			ui.PrintJSON(actionResult{Status: "unchanged", Account: name})
+			return
+		}
 		ui.PrintMuted(fmt.Sprintf("already using %s", ui.AccountStyle.Render(name)))
 		return
 	}
@@ -371,6 +390,10 @@ func cmdUse(name string) {
 	}
 
 	appendSwitchLog(from, name)
+	if cli.JSON {
+		ui.PrintJSON(actionResult{Status: "switched", Account: name, From: from})
+		return
+	}
 	ui.PrintSuccess(fmt.Sprintf("Switched active account to %s", ui.AccountStyle.Render(name)))
 }
 
@@ -378,6 +401,14 @@ func cmdHistory() {
 	events, err := readSwitchLog()
 	if err != nil {
 		ui.Fatalf("%v", err)
+	}
+	if cli.JSON {
+		out := make([]switchEvent, len(events))
+		for i, ev := range events {
+			out[len(events)-1-i] = ev
+		}
+		ui.PrintJSON(out)
+		return
 	}
 	if len(events) == 0 {
 		ui.PrintMuted("(no switch history yet)")
@@ -408,6 +439,10 @@ func cmdRemove(name string, yes bool) {
 			ui.Fatalf("Removing '%s' requires confirmation; pass --yes/-y or run interactively", name)
 		}
 		if !promptConfirmRemoval(name) {
+			if cli.JSON {
+				ui.PrintJSON(actionResult{Status: "cancelled", Account: name})
+				return
+			}
 			ui.PrintMuted("Cancelled.")
 			return
 		}
@@ -418,6 +453,10 @@ func cmdRemove(name string, yes bool) {
 			ui.Fatalf("No saved account called '%s'", name)
 		}
 		ui.Fatalf("could not remove %s: %v", name, err)
+	}
+	if cli.JSON {
+		ui.PrintJSON(actionResult{Status: "removed", Account: name})
+		return
 	}
 	ui.PrintSuccess(fmt.Sprintf("Removed saved account %s.", ui.AccountStyle.Render(name)))
 }
@@ -444,6 +483,10 @@ func cmdDisable(name string) {
 	if err := setAccountDisabled(name, true); err != nil {
 		ui.Fatalf("could not disable %s: %v", name, err)
 	}
+	if cli.JSON {
+		ui.PrintJSON(actionResult{Status: "disabled", Account: name})
+		return
+	}
 	ui.PrintSuccess(fmt.Sprintf("Disabled %s. It stays saved but is skipped by usage/use until re-enabled.", ui.AccountStyle.Render(name)))
 }
 
@@ -455,6 +498,10 @@ func cmdEnable(name string) {
 	}
 	if err := setAccountDisabled(name, false); err != nil {
 		ui.Fatalf("could not enable %s: %v", name, err)
+	}
+	if cli.JSON {
+		ui.PrintJSON(actionResult{Status: "enabled", Account: name})
+		return
 	}
 	ui.PrintSuccess(fmt.Sprintf("Enabled %s.", ui.AccountStyle.Render(name)))
 }
@@ -494,6 +541,10 @@ func cmdRename(oldName, newName string) {
 	if err := os.Rename(oldPath, newPath); err != nil {
 		ui.Fatalf("could not rename %s to %s: %v", oldName, newName, err)
 	}
+	if cli.JSON {
+		ui.PrintJSON(actionResult{Status: "renamed", From: oldName, To: newName})
+		return
+	}
 	ui.PrintSuccess(fmt.Sprintf("Renamed %s → %s.", ui.AccountStyle.Render(oldName), ui.AccountStyle.Render(newName)))
 }
 
@@ -524,9 +575,53 @@ func savedOAuthAccount(name string) (map[string]any, bool) {
 	return m, true
 }
 
+type accountListEntry struct {
+	Name         string `json:"name"`
+	Active       bool   `json:"active"`
+	Disabled     bool   `json:"disabled"`
+	Email        string `json:"email,omitempty"`
+	Organization string `json:"organization,omitempty"`
+	Type         string `json:"type,omitempty"`
+}
+
+func accountJSONFields(name string) (email, org, typ string) {
+	oauth, ok := savedOAuthAccount(name)
+	if !ok {
+		return "", "", ""
+	}
+	if v, ok := ui.WhoamiFieldValue(oauth["emailAddress"]); ok {
+		email = ui.FormatWhoamiField("emailAddress", v)
+	}
+	if v, ok := ui.WhoamiFieldValue(oauth["organizationName"]); ok {
+		org = ui.FormatWhoamiField("organizationName", v)
+	}
+	if v, ok := ui.WhoamiFieldValue(oauth["organizationType"]); ok {
+		typ = ui.FormatWhoamiField("organizationType", v)
+	}
+	return
+}
+
 func cmdList() {
-	ui.InitStyles()
 	names := listAccountNames()
+	if cli.JSON {
+		active, _ := activeOAuthAccount()
+		out := make([]accountListEntry, len(names))
+		for i, name := range names {
+			email, org, typ := accountJSONFields(name)
+			out[i] = accountListEntry{
+				Name:         name,
+				Active:       isActiveSavedAccount(name, active),
+				Disabled:     isAccountDisabled(name),
+				Email:        email,
+				Organization: org,
+				Type:         typ,
+			}
+		}
+		ui.PrintJSON(out)
+		return
+	}
+
+	ui.InitStyles()
 	if len(names) == 0 {
 		ui.PrintMuted("(no saved accounts yet)")
 		return
@@ -717,10 +812,38 @@ func completeRenameArgs(_ *cobra.Command, args []string, _ string) ([]string, co
 	return listAccountNames(), cobra.ShellCompDirectiveNoFileComp
 }
 
+type whoamiJSON struct {
+	Active           bool   `json:"active"`
+	Name             string `json:"name,omitempty"`
+	Email            string `json:"email,omitempty"`
+	Organization     string `json:"organization,omitempty"`
+	OrganizationType string `json:"organizationType,omitempty"`
+}
+
 func cmdWhoami() {
 	oauth, err := activeOAuthAccount()
 	if err != nil {
 		ui.Fatalf("%v", err)
+	}
+	if cli.JSON {
+		out := whoamiJSON{}
+		if m, ok := oauth.(map[string]any); ok {
+			if v, ok := ui.WhoamiFieldValue(m["displayName"]); ok {
+				out.Name = v
+			}
+			if v, ok := ui.WhoamiFieldValue(m["emailAddress"]); ok {
+				out.Email = v
+			}
+			if v, ok := ui.WhoamiFieldValue(m["organizationName"]); ok {
+				out.Organization = v
+			}
+			if v, ok := ui.WhoamiFieldValue(m["organizationType"]); ok {
+				out.OrganizationType = ui.FormatWhoamiField("organizationType", v)
+			}
+			out.Active = out.Name != "" || out.Email != "" || out.Organization != "" || out.OrganizationType != ""
+		}
+		ui.PrintJSON(out)
+		return
 	}
 	ui.PrintWhoami(oauth)
 }
