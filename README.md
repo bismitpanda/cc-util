@@ -22,12 +22,12 @@ Windows (PowerShell):
 irm https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.ps1 | iex
 ```
 
-Re-running either script upgrades only the binary (same install path). Defaults:
+Re-running either script upgrades both binaries (same install path). `ccu` is the same CLI as `cc-util`. Defaults:
 
-| Platform | Install location                              |
-| -------- | --------------------------------------------- |
-| Linux    | `~/.local/bin/cc-util`                        |
-| Windows  | `%LOCALAPPDATA%\Programs\cc-util\cc-util.exe` |
+| Platform | Install location                                                         |
+| -------- | ------------------------------------------------------------------------ |
+| Linux    | `~/.local/bin/cc-util` and `~/.local/bin/ccu`                            |
+| Windows  | `%LOCALAPPDATA%\Programs\cc-util\cc-util.exe` and `ccu.exe`              |
 
 Optional env overrides: `CC_SWITCH_VERSION` (e.g. `v1.1.1`), `CC_SWITCH_INSTALL_DIR`.
 
@@ -46,8 +46,11 @@ go install github.com/bismitpanda/cc-util@latest
 Or from a local clone:
 
 ```bash
-go build -ldflags "-X main.version=$(git rev-parse --short=7 HEAD)" -o cc-util .
+go build -ldflags "-X main.version=$(git rev-parse --short=7 HEAD) -X main.bin=cc-util" -o cc-util .
+go build -ldflags "-X main.version=$(git rev-parse --short=7 HEAD) -X main.bin=ccu" -o ccu .
 ```
+
+`main.bin` is the name printed in help and error messages. It defaults to `cc-util` when unset.
 
 Requires [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`). Go is only needed for `go install` / local builds.
 

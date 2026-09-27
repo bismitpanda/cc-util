@@ -234,7 +234,7 @@ func filterTotals(totals []accountTokenTotals, name string, activeOnly bool) []a
 	if activeOnly {
 		active, ok := activeSavedAccountName()
 		if !ok {
-			fatalf("no active saved account — run cc-util switch use <name> first")
+			fatalf("no active saved account — run %s first", binCmd("switch use <name>"))
 		}
 		name = active
 	}

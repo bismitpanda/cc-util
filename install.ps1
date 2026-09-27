@@ -1,4 +1,4 @@
-# Install or upgrade cc-util from the latest GitHub release.
+# Install or upgrade cc-util and ccu from the latest GitHub release.
 #
 #   irm https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.ps1 | iex
 #
@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'Stop'
 
 $Repo = 'bismitpanda/cc-util'
-$Binary = 'cc-util.exe'
+$Binaries = @('cc-util', 'ccu')
 
 function Write-Info([string]$Message) {
     Write-Host $Message
@@ -62,34 +62,47 @@ if (-not $Version.StartsWith('v')) {
     $Version = "v$Version"
 }
 
-$Asset = "cc-util-$Version-windows-$Arch.exe"
-$Url = "https://github.com/$Repo/releases/download/$Version/$Asset"
-$Dest = Join-Path $InstallDir $Binary
-
-Write-Info "Installing cc-util $Version (windows/$Arch) → $Dest"
-
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("cc-util-" + [guid]::NewGuid().ToString('N') + '.exe')
-try {
-    Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing
-    # Replace in place; retry briefly if the running binary is locked.
-    $replaced = $false
-    for ($i = 0; $i -lt 5; $i++) {
-        try {
-            Move-Item -Force -Path $tmp -Destination $Dest
-            $replaced = $true
-            break
-        } catch {
-            Start-Sleep -Milliseconds 200
+foreach ($Name in $Binaries) {
+    $Asset = "$Name-$Version-windows-$Arch.exe"
+    $Url = "https://github.com/$Repo/releases/download/$Version/$Asset"
+    $Dest = Join-Path $InstallDir "$Name.exe"
+
+    Write-Info "Installing $Name $Version (windows/$Arch) → $Dest"
+
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("$Name-" + [guid]::NewGuid().ToString('N') + '.exe')
+    try {
+        Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing
+        # Replace in place; retry briefly if the running binary is locked.
+        $replaced = $false
+        for ($i = 0; $i -lt 5; $i++) {
+            try {
+                Move-Item -Force -Path $tmp -Destination $Dest
+                $replaced = $true
+                break
+            } catch {
+                Start-Sleep -Milliseconds 200
+            }
+        }
+        if (-not $replaced) {
+            Die "could not write $Dest (is $Name running?)"
+        }
+    } finally {
+        if (Test-Path -LiteralPath $tmp) {
+            Remove-Item -Force -LiteralPath $tmp -ErrorAction SilentlyContinue
         }
     }
-    if (-not $replaced) {
-        Die "could not write $Dest (is cc-util running?)"
-    }
-} finally {
-    if (Test-Path -LiteralPath $tmp) {
-        Remove-Item -Force -LiteralPath $tmp -ErrorAction SilentlyContinue
+
+    try {
+        $ver = & $Dest --version 2>$null
+        if ($ver) {
+            Write-Info "Installed $ver"
+        } else {
+            Write-Info "Installed $Dest"
+        }
+    } catch {
+        Write-Info "Installed $Dest"
     }
 }
 
@@ -101,13 +114,3 @@ if (-not $onPath) {
     Write-Info "  [Environment]::SetEnvironmentVariable('Path', `"$InstallDir;`" + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"
 }
 
-try {
-    $ver = & $Dest --version 2>$null
-    if ($ver) {
-        Write-Info "Installed $ver"
-    } else {
-        Write-Info "Installed $Dest"
-    }
-} catch {
-    Write-Info "Installed $Dest"
-}

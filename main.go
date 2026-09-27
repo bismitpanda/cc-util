@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -9,7 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "dev"
+var (
+	version = "dev"
+	bin     = "cc-util"
+)
+
+func binCmd(args string) string {
+	return bin + " " + args
+}
 
 func completeAccountNames(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
@@ -51,7 +59,7 @@ func optionalName(args []string) string {
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:           "cc-util",
+		Use:           bin,
 		Short:         "Utilities for Claude Code",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -70,16 +78,16 @@ func newRootCmd() *cobra.Command {
 		Use:   "switch",
 		Short: "Switch the active Claude Code account",
 		Long:  "Snapshots Claude Code OAuth credentials and restores them when you switch accounts.",
-		Example: `
+		Example: fmt.Sprintf(`
   # First-time setup for multiple accounts:
   claude auth login               # login with account A
-  cc-util switch save personal
+  %s switch save personal
   claude auth logout
   claude auth login               # login with account B
-  cc-util switch save work
-  cc-util switch use personal     # switch without another browser login
-  cc-util switch use work
-`,
+  %s switch save work
+  %s switch use personal     # switch without another browser login
+  %s switch use work
+`, bin, bin, bin, bin),
 	}
 
 	switchCmd.AddCommand(

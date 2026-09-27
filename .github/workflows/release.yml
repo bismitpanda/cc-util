@@ -26,13 +26,15 @@ jobs:
           VERSION: ${{ github.ref_name }}
         run: |
           mkdir -p dist
-          for GOOS in linux windows; do
-            for GOARCH in amd64 arm64; do
-              EXT=""
-              [ "$GOOS" = "windows" ] && EXT=".exe"
-              OUT="dist/cc-util-${VERSION}-${GOOS}-${GOARCH}${EXT}"
-              CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
-                go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o "$OUT" .
+          for NAME in cc-util ccu; do
+            for GOOS in linux windows; do
+              for GOARCH in amd64 arm64; do
+                EXT=""
+                [ "$GOOS" = "windows" ] && EXT=".exe"
+                OUT="dist/${NAME}-${VERSION}-${GOOS}-${GOARCH}${EXT}"
+                CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
+                  go build -trimpath -ldflags "-s -w -X main.version=${VERSION} -X main.bin=${NAME}" -o "$OUT" .
+              done
             done
           done
 
@@ -79,7 +81,7 @@ jobs:
           > **Note:** macOS is not supported yet (Keychain-backed credentials). Linux and Windows work.
 
           ### Binaries
-          Prebuilt Linux and Windows builds (amd64/arm64) are attached below.
+          Prebuilt Linux and Windows builds of `cc-util` and `ccu` (amd64/arm64) are attached below.
           EOF
           } > release-notes.md
 

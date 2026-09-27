@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Install or upgrade cc-util from the latest GitHub release.
+# Install or upgrade cc-util and ccu from the latest GitHub release.
 #
 #   curl -fsSL https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.sh | sh
 #
@@ -10,7 +10,7 @@
 set -eu
 
 REPO="bismitpanda/cc-util"
-BINARY="cc-util"
+BINARIES="cc-util ccu"
 INSTALL_DIR="${CC_SWITCH_INSTALL_DIR:-${HOME}/.local/bin}"
 VERSION="${CC_SWITCH_VERSION:-}"
 
@@ -100,22 +100,21 @@ v*) ;;
 *) VERSION="v${VERSION}" ;;
 esac
 
-ASSET="${BINARY}-${VERSION}-linux-${ARCH}"
-URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
-DEST="${INSTALL_DIR}/${BINARY}"
-
-info "Installing ${BINARY} ${VERSION} (linux/${ARCH}) → ${DEST}"
-
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT INT HUP TERM
-
-download "$URL" "${TMPDIR}/${BINARY}" || die "download failed: ${URL}"
-chmod 755 "${TMPDIR}/${BINARY}"
-
 mkdir -p "$INSTALL_DIR"
-mv -f "${TMPDIR}/${BINARY}" "$DEST"
 
-info "Installed $($DEST --version 2>/dev/null || printf '%s' "$DEST")"
+for BINARY in $BINARIES; do
+	ASSET="${BINARY}-${VERSION}-linux-${ARCH}"
+	URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
+	DEST="${INSTALL_DIR}/${BINARY}"
+
+	info "Installing ${BINARY} ${VERSION} (linux/${ARCH}) → ${DEST}"
+	download "$URL" "${TMPDIR}/${BINARY}" || die "download failed: ${URL}"
+	chmod 755 "${TMPDIR}/${BINARY}"
+	mv -f "${TMPDIR}/${BINARY}" "$DEST"
+	info "Installed $($DEST --version 2>/dev/null || printf '%s' "$DEST")"
+done
 case ":${PATH}:" in
 *":${INSTALL_DIR}:"*) ;;
 *)

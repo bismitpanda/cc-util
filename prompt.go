@@ -159,14 +159,14 @@ func promptSelectFromAccounts(names []string, emptyMsg string) string {
 func promptSelectEnabledAccount() string {
 	return promptSelectFromAccounts(
 		listEnabledAccountNames(),
-		"No enabled accounts. Run: cc-util switch save <name> (or cc-util switch enable <name>)",
+		fmt.Sprintf("No enabled accounts. Run: %s (or %s)", binCmd("switch save <name>"), binCmd("switch enable <name>")),
 	)
 }
 
 func promptSelectAnyAccount() string {
 	return promptSelectFromAccounts(
 		listAccountNames(),
-		"No saved accounts yet. Run: cc-util switch save <name>",
+		fmt.Sprintf("No saved accounts yet. Run: %s", binCmd("switch save <name>")),
 	)
 }
 
