@@ -511,7 +511,7 @@ func fetchSelectedAccountUsage(name string) ([]usageLimit, error) {
 }
 
 func fetchSavedAccountUsage(name string) ([]usageLimit, error) {
-	token, err := ensureAccountAccessToken(name)
+	token, err := EnsureAccountAccessToken(name)
 	if err != nil {
 		return nil, err
 	}
@@ -670,7 +670,7 @@ func cmdUsage(name string, opts usageOptions) {
 	var names []string
 	switch {
 	case opts.activeOnly:
-		activeName, ok := activeSavedAccountName()
+		activeName, ok := ActiveSavedAccountName()
 		if !ok {
 			ui.PrintMuted("(no active saved account)")
 			return

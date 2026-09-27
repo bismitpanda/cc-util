@@ -261,7 +261,7 @@ func writeAccountSnapshot(name string, oauth, claudeAiOauth any) error {
 	return writeJSONObject(path, snap, 0600)
 }
 
-func activeSavedAccountName() (string, bool) {
+func ActiveSavedAccountName() (string, bool) {
 	active, err := activeOAuthAccount()
 	if err != nil || active == nil {
 		return "", false
@@ -275,7 +275,7 @@ func activeSavedAccountName() (string, bool) {
 }
 
 func syncActiveSnapshot() (string, error) {
-	name, ok := activeSavedAccountName()
+	name, ok := ActiveSavedAccountName()
 	if !ok {
 		return "", fmt.Errorf("active account is not saved — run: %s", cli.Cmd("accounts save <name>"))
 	}
@@ -327,7 +327,7 @@ func cmdUse(name string) {
 		ui.Fatalf("Account '%s' is disabled. Run: %s", name, cli.Cmd("accounts enable "+name))
 	}
 
-	from, _ := activeSavedAccountName()
+	from, _ := ActiveSavedAccountName()
 	if from == name {
 		ui.PrintMuted(fmt.Sprintf("already using %s", ui.AccountStyle.Render(name)))
 		return

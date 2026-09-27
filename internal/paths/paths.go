@@ -26,3 +26,7 @@ func StoreDir() string {
 func SwitchesLog() string {
 	return filepath.Join(RootDir(), "switches.jsonl")
 }
+
+func ModelNamesFile() string {
+	return filepath.Join(RootDir(), "model-names.json")
+}

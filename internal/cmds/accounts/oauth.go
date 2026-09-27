@@ -320,7 +320,7 @@ func snapshotAccountAccessToken(name string) (string, error) {
 	return token, nil
 }
 
-func ensureAccountAccessToken(name string) (string, error) {
+func EnsureAccountAccessToken(name string) (string, error) {
 	mu := accountMutex(name)
 	mu.Lock()
 	defer mu.Unlock()

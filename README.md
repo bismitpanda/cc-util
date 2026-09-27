@@ -56,22 +56,23 @@ Requires [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`
 
 ## Commands
 
-| Command                               | Description                                           |
-| ------------------------------------- | ----------------------------------------------------- |
-| `cc-util accounts save [name]`        | Snapshot the currently logged-in account              |
-| `cc-util accounts sync`               | Update the active account's snapshot from live creds  |
-| `cc-util accounts use [name]`         | Switch to a saved account                             |
-| `cc-util accounts disable [name]`     | Disable an account (keeps it, skips usage/use)        |
-| `cc-util accounts enable [name]`      | Re-enable a disabled account                          |
-| `cc-util accounts remove [name]`      | Delete a saved account                                |
-| `cc-util accounts rename [old] [new]` | Rename a saved account                                |
-| `cc-util accounts list`               | List saved accounts                                   |
-| `cc-util accounts history`            | Show account switch history                           |
-| `cc-util accounts whoami`             | Show the active account                               |
-| `cc-util accounts status`             | Show credential validity and expiry                   |
-| `cc-util accounts usage [name]`       | Show rate-limit usage (all accounts, or a named one)  |
-| `cc-util completion <shell>`          | Print a completion script for Bash, Fish, or Zsh      |
-| `cc-util help`                        | Show help                                             |
+| Command                               | Description                                          |
+| ------------------------------------- | ---------------------------------------------------- |
+| `cc-util accounts save [name]`        | Snapshot the currently logged-in account             |
+| `cc-util accounts sync`               | Update the active account's snapshot from live creds |
+| `cc-util accounts use [name]`         | Switch to a saved account                            |
+| `cc-util accounts disable [name]`     | Disable an account (keeps it, skips usage/use)       |
+| `cc-util accounts enable [name]`      | Re-enable a disabled account                         |
+| `cc-util accounts remove [name]`      | Delete a saved account                               |
+| `cc-util accounts rename [old] [new]` | Rename a saved account                               |
+| `cc-util accounts list`               | List saved accounts                                  |
+| `cc-util accounts history`            | Show account switch history                          |
+| `cc-util accounts whoami`             | Show the active account                              |
+| `cc-util accounts status`             | Show credential validity and expiry                  |
+| `cc-util accounts usage [name]`       | Show rate-limit usage (all accounts, or a named one) |
+| `cc-util projects [--long]`           | List project folders saved in `~/.claude.json`       |
+| `cc-util completion <shell>`          | Print a completion script for Bash, Fish, or Zsh     |
+| `cc-util help`                        | Show help                                            |
 
 `acc` and `account` are aliases for `accounts`.
 
