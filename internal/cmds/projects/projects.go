@@ -61,11 +61,10 @@ func cmdProjects(long bool) {
 			p.Path,
 			yesNo(p.OnDisk),
 			yesNo(p.Trusted),
-			formatLastStart(p.LastStart),
+			formatSession(p.LastSessionID, p.LastStart, long),
 		}
 		if long {
 			row = append(row,
-				formatSession(p.LastSessionID),
 				formatModels(p.Models, names),
 				formatLines(p),
 				formatCost(p.LastCost),
@@ -77,7 +76,7 @@ func cmdProjects(long bool) {
 
 	headers := []string{"Folder", "On disk", "Trusted", "Last session"}
 	if long {
-		headers = append(headers, "Last session", "Models", "Lines", "Cost", "MCP")
+		headers = append(headers, "Models", "Lines", "Cost", "MCP")
 	}
 
 	ui.InitStyles()
@@ -112,11 +111,12 @@ func formatLastStart(t time.Time) string {
 	return t.Local().Format("Jan 2, 2006 3:04 PM")
 }
 
-func formatSession(id string) string {
-	if id == "" {
-		return "—"
+func formatSession(id string, lastStart time.Time, long bool) string {
+	date := formatLastStart(lastStart)
+	if !long || id == "" {
+		return date
 	}
-	return id
+	return fmt.Sprintf("%s (%s)", id, date)
 }
 
 func formatLines(p claude.Project) string {

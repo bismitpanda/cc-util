@@ -6,9 +6,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/yuin/goldmark/v2/ast"
 	"github.com/yuin/goldmark/v2/parser"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,6 +28,7 @@ type MemoryPage struct {
 	Title       string
 	Type        string
 	Description string
+	Modified    time.Time
 	Body        string
 }
 
@@ -32,7 +36,8 @@ type memoryFile struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
 	Metadata    struct {
-		Type string `yaml:"type"`
+		Type     string `yaml:"type"`
+		Modified string `yaml:"modified"`
 	} `yaml:"metadata"`
 }
 
@@ -162,14 +167,36 @@ func ReadMemory(projectPath, name string) (MemoryPage, error) {
 		}
 	}
 	if title == "" {
-		title = meta.Name
+		slug := meta.Name
+		if slug == "" {
+			slug = strings.TrimSuffix(file, filepath.Ext(file))
+		}
+		title = humanizeSlug(slug)
 	}
 	return MemoryPage{
 		Title:       title,
 		Type:        meta.Metadata.Type,
 		Description: description,
+		Modified:    parseModified(meta.Metadata.Modified),
 		Body:        strings.TrimSpace(body),
 	}, nil
+}
+
+func humanizeSlug(slug string) string {
+	return cases.Title(language.English).String(strings.ReplaceAll(slug, "-", " "))
+}
+
+func parseModified(raw string) time.Time {
+	if raw == "" {
+		return time.Time{}
+	}
+	if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return t
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t
+	}
+	return time.Time{}
 }
 
 func CurrentProject() (string, error) {

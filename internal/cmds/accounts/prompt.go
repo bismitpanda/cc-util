@@ -172,6 +172,25 @@ func promptSelectAnyAccount() string {
 	)
 }
 
+func promptConfirmRemoval(name string) bool {
+	var confirmed bool
+	km := promptKeyMap()
+	form := huh.NewForm(
+		huh.NewGroup(
+			withCancelHelp(
+				huh.NewConfirm().
+					Title(fmt.Sprintf("Remove saved account %s?", name)).
+					Affirmative("Yes").
+					Negative("No").
+					Value(&confirmed),
+				km.Quit,
+			),
+		),
+	)
+	exitOnPromptCancel(runPrompt(form))
+	return confirmed
+}
+
 func promptSelectDisabledAccount() string {
 	return promptSelectFromAccounts(
 		listDisabledAccountNames(),

@@ -398,8 +398,20 @@ func cmdHistory() {
 	}
 }
 
-func cmdRemove(name string) {
+func cmdRemove(name string, yes bool) {
 	name = resolveAnyAccountName(name, cli.Cmd("accounts remove <name>"))
+	if !accountExists(name) {
+		ui.Fatalf("No saved account called '%s'", name)
+	}
+	if !yes {
+		if !isInteractive() {
+			ui.Fatalf("Removing '%s' requires confirmation; pass --yes/-y or run interactively", name)
+		}
+		if !promptConfirmRemoval(name) {
+			ui.PrintMuted("Cancelled.")
+			return
+		}
+	}
 	snapPath := accountSnapPath(name)
 	if err := os.Remove(snapPath); err != nil {
 		if os.IsNotExist(err) {
@@ -408,6 +420,22 @@ func cmdRemove(name string) {
 		ui.Fatalf("could not remove %s: %v", name, err)
 	}
 	ui.PrintSuccess(fmt.Sprintf("Removed saved account %s.", ui.AccountStyle.Render(name)))
+}
+
+func removeCommand() *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:               "remove [name]",
+		Aliases:           []string{"rm"},
+		Short:             "Delete a saved account",
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: completeAnyAccountNames,
+		Run: func(_ *cobra.Command, args []string) {
+			cmdRemove(optionalName(args), yes)
+		},
+	}
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func cmdDisable(name string) {
@@ -741,16 +769,7 @@ func Command() *cobra.Command {
 				cmdUse(optionalName(args))
 			},
 		},
-		&cobra.Command{
-			Use:               "remove [name]",
-			Aliases:           []string{"rm"},
-			Short:             "Delete a saved account",
-			Args:              cobra.MaximumNArgs(1),
-			ValidArgsFunction: completeAnyAccountNames,
-			Run: func(_ *cobra.Command, args []string) {
-				cmdRemove(optionalName(args))
-			},
-		},
+		removeCommand(),
 		&cobra.Command{
 			Use:               "disable [name]",
 			Short:             "Disable a saved account (keeps it, skips API use)",
@@ -787,9 +806,10 @@ func Command() *cobra.Command {
 			},
 		},
 		&cobra.Command{
-			Use:   "list",
-			Short: "List saved accounts with details",
-			Args:  cobra.NoArgs,
+			Use:     "list",
+			Aliases: []string{"ls"},
+			Short:   "List saved accounts with details",
+			Args:    cobra.NoArgs,
 			Run: func(_ *cobra.Command, _ []string) {
 				cmdList()
 			},

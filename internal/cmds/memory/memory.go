@@ -3,6 +3,8 @@ package memory
 import (
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"charm.land/glamour/v2"
 	"charm.land/glamour/v2/styles"
@@ -12,7 +14,51 @@ import (
 	"github.com/bismitpanda/cc-util/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
+
+func projectPathCompletions() ([]string, cobra.ShellCompDirective) {
+	list, err := claude.ListProjects()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	paths := make([]string, len(list))
+	for i, p := range list {
+		paths[i] = p.Path
+	}
+	return paths, cobra.ShellCompDirectiveNoFileComp
+}
+
+func memoryNameCompletions(project string) ([]string, cobra.ShellCompDirective) {
+	list, err := claude.ListMemories(project)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	names := make([]string, len(list))
+	for i, m := range list {
+		names[i] = m.Name
+	}
+	return names, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeListArgs(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) != 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return projectPathCompletions()
+}
+
+func completeShowArgs(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	switch len(args) {
+	case 0:
+		return projectPathCompletions()
+	case 1:
+		return memoryNameCompletions(args[0])
+	default:
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+}
 
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
@@ -31,8 +77,9 @@ func listCommand() *cobra.Command {
 		Use:     "list [project]",
 		Aliases: []string{"ls"},
 		Short:   "List auto memories",
-		Long:    "Lists auto memories for the current project folder. Pass a project path or unique folder name to list that project. --all prints one table per folder. --long adds the description from the memory file.",
-		Args:    cobra.MaximumNArgs(1),
+		Long:              "Lists auto memories for the current project folder. Pass a project path or unique folder name to list that project. --all prints one table per folder. --long adds the description from the memory file.",
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: completeListArgs,
 		Run: func(_ *cobra.Command, args []string) {
 			if all && len(args) > 0 {
 				ui.Fatalf("cannot combine --all with a project")
@@ -57,9 +104,10 @@ func listCommand() *cobra.Command {
 
 func showCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "show <project> <file>",
-		Short: "Print one memory",
-		Args:  cobra.ExactArgs(2),
+		Use:               "show <project> <file>",
+		Short:             "Print one memory",
+		Args:              cobra.ExactArgs(2),
+		ValidArgsFunction: completeShowArgs,
 		Run: func(_ *cobra.Command, args []string) {
 			cmdShow(args[0], args[1])
 		},
@@ -123,21 +171,33 @@ func cmdMemory(project string, long bool) {
 	flush()
 }
 
+func formatModified(t time.Time) string {
+	return t.Local().Format("Jan 2, 2006 3:04 PM")
+}
+
 func cmdShow(project, name string) {
 	page, err := claude.ReadMemory(project, name)
 	if err != nil {
 		ui.Fatalf("%v", err)
 	}
+	ui.InitStyles()
 	if page.Title != "" {
-		fmt.Println(page.Title)
+		lipgloss.Println(ui.TitleStyle.Render(page.Title))
 	}
+	var meta []string
 	if page.Type != "" {
-		fmt.Println(page.Type)
+		meta = append(meta, ui.LabelStyle.Render("Type: ")+cases.Title(language.English).String(page.Type))
+	}
+	if !page.Modified.IsZero() {
+		meta = append(meta, ui.LabelStyle.Render("Modified: ")+formatModified(page.Modified))
+	}
+	if len(meta) > 0 {
+		lipgloss.Println(strings.Join(meta, "   "))
 	}
 	if page.Description != "" {
 		fmt.Println(page.Description)
 	}
-	if page.Title != "" || page.Type != "" || page.Description != "" {
+	if page.Title != "" || len(meta) > 0 || page.Description != "" {
 		fmt.Println()
 	}
 	if page.Body == "" {

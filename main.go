@@ -9,6 +9,7 @@ import (
 	"github.com/bismitpanda/cc-util/internal/cli"
 	"github.com/bismitpanda/cc-util/internal/cmds/accounts"
 	"github.com/bismitpanda/cc-util/internal/cmds/memory"
+	"github.com/bismitpanda/cc-util/internal/cmds/paths"
 	"github.com/bismitpanda/cc-util/internal/cmds/projects"
 	"github.com/bismitpanda/cc-util/internal/ui"
 	"github.com/spf13/cobra"
@@ -36,7 +37,7 @@ func newRootCmd() *cobra.Command {
 		},
 	}
 	cli.Bin = bin
-	root.AddCommand(accounts.Command(), projects.Command(), memory.Command())
+	root.AddCommand(accounts.Command(), projects.Command(), memory.Command(), paths.Command())
 	return root
 }
 
