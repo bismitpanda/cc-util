@@ -31,7 +31,7 @@ func globalFile() string {
 }
 
 func rootDir() string {
-	return filepath.Join(homeDir(), ".cc-switch")
+	return filepath.Join(homeDir(), ".cc-util")
 }
 
 func storeDir() string {
@@ -251,7 +251,7 @@ func requireExistingAccount(name string) string {
 func requireEnabledAccount(name string) string {
 	name = requireExistingAccount(name)
 	if isAccountDisabled(name) {
-		fatalf("Account '%s' is disabled. Run: cc-switch enable %s", name, name)
+		fatalf("Account '%s' is disabled. Run: cc-util switch enable %s", name, name)
 	}
 	return name
 }
@@ -308,7 +308,7 @@ func activeSavedAccountName() (string, bool) {
 func syncActiveSnapshot() (string, error) {
 	name, ok := activeSavedAccountName()
 	if !ok {
-		return "", fmt.Errorf("active account is not saved — run: cc-switch save <name>")
+		return "", fmt.Errorf("active account is not saved — run: cc-util switch save <name>")
 	}
 	oauth, claudeAiOauth, err := liveCredentials()
 	if err != nil {
@@ -323,7 +323,7 @@ func syncActiveSnapshot() (string, error) {
 func cmdSave(name string) {
 	if name == "" {
 		if !isInteractive() {
-			fatalf("Usage: cc-switch save <name>")
+			fatalf("Usage: cc-util switch save <name>")
 		}
 		name = promptSaveName()
 	} else {
@@ -349,13 +349,13 @@ func cmdSync() {
 }
 
 func cmdUse(name string) {
-	name = resolveAccountName(name, "cc-switch use <name>")
+	name = resolveAccountName(name, "cc-util switch use <name>")
 	snapPath := accountSnapPath(name)
 	if _, err := os.Stat(snapPath); os.IsNotExist(err) {
-		fatalf("No saved account called '%s'. Run: cc-switch save %s (while logged into it)", name, name)
+		fatalf("No saved account called '%s'. Run: cc-util switch save %s (while logged into it)", name, name)
 	}
 	if isAccountDisabled(name) {
-		fatalf("Account '%s' is disabled. Run: cc-switch enable %s", name, name)
+		fatalf("Account '%s' is disabled. Run: cc-util switch enable %s", name, name)
 	}
 
 	from, _ := activeSavedAccountName()
@@ -430,7 +430,7 @@ func cmdHistory() {
 }
 
 func cmdRemove(name string) {
-	name = resolveAnyAccountName(name, "cc-switch remove <name>")
+	name = resolveAnyAccountName(name, "cc-util switch remove <name>")
 	snapPath := accountSnapPath(name)
 	if err := os.Remove(snapPath); err != nil {
 		if os.IsNotExist(err) {
@@ -442,7 +442,7 @@ func cmdRemove(name string) {
 }
 
 func cmdDisable(name string) {
-	name = resolveAccountName(name, "cc-switch disable <name>")
+	name = resolveAccountName(name, "cc-util switch disable <name>")
 	name = requireEnabledAccount(name)
 	if err := setAccountDisabled(name, true); err != nil {
 		fatalf("could not disable %s: %v", name, err)
@@ -451,7 +451,7 @@ func cmdDisable(name string) {
 }
 
 func cmdEnable(name string) {
-	name = resolveDisabledAccountName(name, "cc-switch enable <name>")
+	name = resolveDisabledAccountName(name, "cc-util switch enable <name>")
 	name = requireExistingAccount(name)
 	if !isAccountDisabled(name) {
 		fatalf("Account '%s' is not disabled", name)
@@ -465,7 +465,7 @@ func cmdEnable(name string) {
 func cmdRename(oldName, newName string) {
 	if oldName == "" {
 		if !isInteractive() {
-			fatalf("Usage: cc-switch rename <old> <new>")
+			fatalf("Usage: cc-util switch rename <old> <new>")
 		}
 		oldName = promptSelectAnyAccount()
 	} else {
@@ -473,7 +473,7 @@ func cmdRename(oldName, newName string) {
 	}
 	if newName == "" {
 		if !isInteractive() {
-			fatalf("Usage: cc-switch rename <old> <new>")
+			fatalf("Usage: cc-util switch rename <old> <new>")
 		}
 		newName = promptAccountName("work")
 	} else {

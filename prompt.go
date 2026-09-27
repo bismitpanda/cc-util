@@ -159,14 +159,14 @@ func promptSelectFromAccounts(names []string, emptyMsg string) string {
 func promptSelectEnabledAccount() string {
 	return promptSelectFromAccounts(
 		listEnabledAccountNames(),
-		"No enabled accounts. Run: cc-switch save <name> (or cc-switch enable <name>)",
+		"No enabled accounts. Run: cc-util switch save <name> (or cc-util switch enable <name>)",
 	)
 }
 
 func promptSelectAnyAccount() string {
 	return promptSelectFromAccounts(
 		listAccountNames(),
-		"No saved accounts yet. Run: cc-switch save <name>",
+		"No saved accounts yet. Run: cc-util switch save <name>",
 	)
 }
 

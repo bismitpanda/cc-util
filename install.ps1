@@ -1,15 +1,15 @@
-# Install or upgrade cc-switch from the latest GitHub release.
+# Install or upgrade cc-util from the latest GitHub release.
 #
-#   irm https://raw.githubusercontent.com/bismitpanda/cc-switch/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.ps1 | iex
 #
 # Optional env:
 #   CC_SWITCH_VERSION      Pin a release tag (e.g. v1.1.1). Default: latest.
-#   CC_SWITCH_INSTALL_DIR  Install directory. Default: %LOCALAPPDATA%\Programs\cc-switch
+#   CC_SWITCH_INSTALL_DIR  Install directory. Default: %LOCALAPPDATA%\Programs\cc-util
 
 $ErrorActionPreference = 'Stop'
 
-$Repo = 'bismitpanda/cc-switch'
-$Binary = 'cc-switch.exe'
+$Repo = 'bismitpanda/cc-util'
+$Binary = 'cc-util.exe'
 
 function Write-Info([string]$Message) {
     Write-Host $Message
@@ -23,7 +23,7 @@ function Die([string]$Message) {
 $InstallDir = if ($env:CC_SWITCH_INSTALL_DIR -and $env:CC_SWITCH_INSTALL_DIR.Trim() -ne '') {
     $env:CC_SWITCH_INSTALL_DIR.Trim()
 } else {
-    Join-Path $env:LOCALAPPDATA 'Programs\cc-switch'
+    Join-Path $env:LOCALAPPDATA 'Programs\cc-util'
 }
 
 $Version = if ($env:CC_SWITCH_VERSION -and $env:CC_SWITCH_VERSION.Trim() -ne '') {
@@ -44,7 +44,7 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
     try {
         $headers = @{
             Accept                 = 'application/vnd.github+json'
-            'User-Agent'           = 'cc-switch-install'
+            'User-Agent'           = 'cc-util-install'
             'X-GitHub-Api-Version' = '2022-11-28'
         }
         $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers
@@ -62,15 +62,15 @@ if (-not $Version.StartsWith('v')) {
     $Version = "v$Version"
 }
 
-$Asset = "cc-switch-$Version-windows-$Arch.exe"
+$Asset = "cc-util-$Version-windows-$Arch.exe"
 $Url = "https://github.com/$Repo/releases/download/$Version/$Asset"
 $Dest = Join-Path $InstallDir $Binary
 
-Write-Info "Installing cc-switch $Version (windows/$Arch) → $Dest"
+Write-Info "Installing cc-util $Version (windows/$Arch) → $Dest"
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("cc-switch-" + [guid]::NewGuid().ToString('N') + '.exe')
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("cc-util-" + [guid]::NewGuid().ToString('N') + '.exe')
 try {
     Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing
     # Replace in place; retry briefly if the running binary is locked.
@@ -85,7 +85,7 @@ try {
         }
     }
     if (-not $replaced) {
-        Die "could not write $Dest (is cc-switch running?)"
+        Die "could not write $Dest (is cc-util running?)"
     }
 } finally {
     if (Test-Path -LiteralPath $tmp) {

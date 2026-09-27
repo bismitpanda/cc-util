@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
-# Install or upgrade cc-switch from the latest GitHub release.
+# Install or upgrade cc-util from the latest GitHub release.
 #
-#   curl -fsSL https://raw.githubusercontent.com/bismitpanda/cc-switch/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.sh | sh
 #
 # Optional env:
 #   CC_SWITCH_VERSION      Pin a release tag (e.g. v1.1.1). Default: latest.
@@ -9,8 +9,8 @@
 
 set -eu
 
-REPO="bismitpanda/cc-switch"
-BINARY="cc-switch"
+REPO="bismitpanda/cc-util"
+BINARY="cc-util"
 INSTALL_DIR="${CC_SWITCH_INSTALL_DIR:-${HOME}/.local/bin}"
 VERSION="${CC_SWITCH_VERSION:-}"
 

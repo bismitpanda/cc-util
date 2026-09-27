@@ -1,4 +1,4 @@
-module github.com/bismitpanda/cc-switch
+module github.com/bismitpanda/cc-util
 
 go 1.26.5
 

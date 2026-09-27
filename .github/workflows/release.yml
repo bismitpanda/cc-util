@@ -30,7 +30,7 @@ jobs:
             for GOARCH in amd64 arm64; do
               EXT=""
               [ "$GOOS" = "windows" ] && EXT=".exe"
-              OUT="dist/cc-switch-${VERSION}-${GOOS}-${GOARCH}${EXT}"
+              OUT="dist/cc-util-${VERSION}-${GOOS}-${GOARCH}${EXT}"
               CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
                 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o "$OUT" .
             done
@@ -61,19 +61,19 @@ jobs:
           Linux:
 
           ```bash
-          curl -fsSL https://raw.githubusercontent.com/bismitpanda/cc-switch/main/install.sh | sh
+          curl -fsSL https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.sh | sh
           ```
 
           Windows (PowerShell):
 
           ```powershell
-          irm https://raw.githubusercontent.com/bismitpanda/cc-switch/main/install.ps1 | iex
+          irm https://raw.githubusercontent.com/bismitpanda/cc-util/main/install.ps1 | iex
           ```
 
           Or download a binary below, or:
 
           ```bash
-          go install github.com/bismitpanda/cc-switch@latest
+          go install github.com/bismitpanda/cc-util@latest
           ```
 
           > **Note:** macOS is not supported yet (Keychain-backed credentials). Linux and Windows work.

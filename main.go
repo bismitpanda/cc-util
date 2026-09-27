@@ -51,19 +51,8 @@ func optionalName(args []string) string {
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "cc-switch",
-		Short: "Switch the active Claude Code account",
-		Long:  "cc-switch snapshots Claude Code OAuth credentials and restores them when you switch accounts.",
-		Example: `
-  # First-time setup for multiple accounts:
-  claude auth login          # login with account A
-  cc-switch save personal
-  claude auth logout
-  claude auth login          # login with account B
-  cc-switch save work
-  cc-switch use personal     # switch without another browser login
-  cc-switch use work
-`,
+		Use:           "cc-util",
+		Short:         "Utilities for Claude Code",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
@@ -77,7 +66,23 @@ func newRootCmd() *cobra.Command {
 		},
 	}
 
-	root.AddCommand(
+	switchCmd := &cobra.Command{
+		Use:   "switch",
+		Short: "Switch the active Claude Code account",
+		Long:  "Snapshots Claude Code OAuth credentials and restores them when you switch accounts.",
+		Example: `
+  # First-time setup for multiple accounts:
+  claude auth login               # login with account A
+  cc-util switch save personal
+  claude auth logout
+  claude auth login               # login with account B
+  cc-util switch save work
+  cc-util switch use personal     # switch without another browser login
+  cc-util switch use work
+`,
+	}
+
+	switchCmd.AddCommand(
 		&cobra.Command{
 			Use:   "save [name]",
 			Short: "Snapshot the currently logged-in account",
@@ -176,6 +181,8 @@ func newRootCmd() *cobra.Command {
 		newUsageCmd(),
 		newTokensCmd(),
 	)
+
+	root.AddCommand(switchCmd)
 
 	return root
 }
