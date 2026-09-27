@@ -1,4 +1,4 @@
-package main
+package accounts
 
 import (
 	"encoding/json"
@@ -7,6 +7,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/bismitpanda/cc-util/internal/ui"
+	"github.com/spf13/cobra"
 )
 
 type tokenState int
@@ -39,7 +41,7 @@ func rowHasExpiredToken(row authStatusRow) bool {
 }
 
 func cmdStatus(opts statusOptions) {
-	initStyles()
+	ui.InitStyles()
 
 	active, _ := activeOAuthAccount()
 	names := listAccountNames()
@@ -84,13 +86,13 @@ func cmdStatus(opts statusOptions) {
 	if len(rows) == 0 {
 		switch {
 		case opts.activeOnly && opts.expiredOnly:
-			printMuted("(active account has no expired tokens)")
+			ui.PrintMuted("(active account has no expired tokens)")
 		case opts.activeOnly:
-			printMuted("(no active account)")
+			ui.PrintMuted("(no active account)")
 		case opts.expiredOnly:
-			printMuted("(no accounts with expired tokens)")
+			ui.PrintMuted("(no accounts with expired tokens)")
 		default:
-			printMuted("(no saved or active credentials)")
+			ui.PrintMuted("(no saved or active credentials)")
 		}
 		return
 	}
@@ -106,16 +108,16 @@ func cmdStatus(opts statusOptions) {
 
 	t := table.New().
 		Border(lipgloss.NormalBorder()).
-		BorderStyle(mutedStyle).
+		BorderStyle(ui.MutedStyle).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			if row == table.HeaderRow {
-				return labelStyle.Bold(true).Padding(0, 1)
+				return ui.LabelStyle.Bold(true).Padding(0, 1)
 			}
 			if col == 0 {
 				if rows[row].active {
-					return accountStyle.Bold(true).Foreground(lipgloss.Color("42")).Padding(0, 1)
+					return ui.AccountStyle.Bold(true).Foreground(lipgloss.Color("42")).Padding(0, 1)
 				}
-				return accountStyle.Padding(0, 1)
+				return ui.AccountStyle.Padding(0, 1)
 			}
 			if col == 1 || col == 2 {
 				state := rows[row].access.state
@@ -124,12 +126,12 @@ func cmdStatus(opts statusOptions) {
 				}
 				switch state {
 				case tokenStateValid:
-					return successStyle.Padding(0, 1)
+					return ui.SuccessStyle.Padding(0, 1)
 				case tokenStateExpired, tokenStateMissing:
-					return errorStyle.Padding(0, 1)
+					return ui.ErrorStyle.Padding(0, 1)
 				}
 			}
-			return whoamiValStyle.Padding(0, 1)
+			return ui.WhoamiValStyle.Padding(0, 1)
 		}).
 		Headers("Account", "Access token", "Refresh token").
 		Rows(tableRows...)
@@ -195,4 +197,22 @@ func formatTokenExpiry(expiry, now time.Time) string {
 		when = localExpiry.Format("3:04 PM")
 	}
 	return when
+}
+
+func statusCommand() *cobra.Command {
+	var activeOnly, expiredOnly bool
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show credential validity and expiry",
+		Args:  cobra.NoArgs,
+		Run: func(_ *cobra.Command, _ []string) {
+			cmdStatus(statusOptions{
+				activeOnly:  activeOnly,
+				expiredOnly: expiredOnly,
+			})
+		},
+	}
+	cmd.Flags().BoolVarP(&activeOnly, "active", "A", false, "Show only the active account")
+	cmd.Flags().BoolVarP(&expiredOnly, "expired", "e", false, "Show only accounts with an expired token")
+	return cmd
 }

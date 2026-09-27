@@ -1,4 +1,4 @@
-package main
+package accounts
 
 import (
 	"bufio"
@@ -12,48 +12,17 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/bismitpanda/cc-util/internal/claude"
+	"github.com/bismitpanda/cc-util/internal/cli"
+	"github.com/bismitpanda/cc-util/internal/paths"
+	"github.com/bismitpanda/cc-util/internal/ui"
+	"github.com/spf13/cobra"
 )
-
-func claudeDir() string {
-	dir := os.Getenv("CLAUDE_CONFIG_DIR")
-	if dir == "" {
-		dir = filepath.Join(homeDir(), ".claude")
-	}
-	return dir
-}
-
-func credFile() string {
-	return filepath.Join(claudeDir(), ".credentials.json")
-}
-
-func globalFile() string {
-	return filepath.Join(homeDir(), ".claude.json")
-}
-
-func rootDir() string {
-	return filepath.Join(homeDir(), ".cc-util")
-}
-
-func storeDir() string {
-	return filepath.Join(rootDir(), "accounts")
-}
-
-func switchesLogPath() string {
-	return filepath.Join(rootDir(), "switches.jsonl")
-}
 
 type switchEvent struct {
 	TS   string `json:"ts"`
 	From string `json:"from"`
 	To   string `json:"to"`
-}
-
-func homeDir() string {
-	h, err := os.UserHomeDir()
-	if err != nil {
-		fatalf("cannot determine home directory: %v", err)
-	}
-	return h
 }
 
 func readJSONObject(path string) (map[string]any, error) {
@@ -109,20 +78,20 @@ func orDefault(v any, ok bool, def any) any {
 	return v
 }
 
-func ensureSetup() {
-	for _, dir := range []string{rootDir(), storeDir()} {
+func EnsureSetup() {
+	for _, dir := range []string{paths.RootDir(), paths.StoreDir()} {
 		if err := os.MkdirAll(dir, 0700); err != nil {
-			fatalf("could not create %s: %v", dir, err)
+			ui.Fatalf("could not create %s: %v", dir, err)
 		}
 		if err := os.Chmod(dir, 0700); err != nil {
-			fatalf("could not chmod %s: %v", dir, err)
+			ui.Fatalf("could not chmod %s: %v", dir, err)
 		}
 	}
 
-	gf := globalFile()
+	gf := claude.GlobalFile()
 	if _, err := os.Stat(gf); os.IsNotExist(err) {
 		if err := os.WriteFile(gf, []byte("{}\n"), 0644); err != nil {
-			fatalf("could not create %s: %v", gf, err)
+			ui.Fatalf("could not create %s: %v", gf, err)
 		}
 	}
 }
@@ -137,7 +106,7 @@ func appendSwitchLog(from, to string) {
 	if err != nil {
 		return
 	}
-	f, err := os.OpenFile(switchesLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(paths.SwitchesLog(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return
 	}
@@ -146,7 +115,7 @@ func appendSwitchLog(from, to string) {
 }
 
 func readSwitchLog() ([]switchEvent, error) {
-	path := switchesLogPath()
+	path := paths.SwitchesLog()
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -176,13 +145,13 @@ func readSwitchLog() ([]switchEvent, error) {
 }
 
 func accountSnapPath(name string) string {
-	return filepath.Join(storeDir(), requireAccountName(name)+".json")
+	return filepath.Join(paths.StoreDir(), requireAccountName(name)+".json")
 }
 
 func resolveAccountName(name string, usage string) string {
 	if name == "" {
 		if !isInteractive() {
-			fatalf("Usage: %s", usage)
+			ui.Fatalf("Usage: %s", usage)
 		}
 		return promptSelectEnabledAccount()
 	}
@@ -192,7 +161,7 @@ func resolveAccountName(name string, usage string) string {
 func resolveAnyAccountName(name string, usage string) string {
 	if name == "" {
 		if !isInteractive() {
-			fatalf("Usage: %s", usage)
+			ui.Fatalf("Usage: %s", usage)
 		}
 		return promptSelectAnyAccount()
 	}
@@ -202,7 +171,7 @@ func resolveAnyAccountName(name string, usage string) string {
 func resolveDisabledAccountName(name string, usage string) string {
 	if name == "" {
 		if !isInteractive() {
-			fatalf("Usage: %s", usage)
+			ui.Fatalf("Usage: %s", usage)
 		}
 		return promptSelectDisabledAccount()
 	}
@@ -243,7 +212,7 @@ func setAccountDisabled(name string, disabled bool) error {
 func requireExistingAccount(name string) string {
 	name = requireAccountName(name)
 	if !accountExists(name) {
-		fatalf("No saved account called '%s'", name)
+		ui.Fatalf("No saved account called '%s'", name)
 	}
 	return name
 }
@@ -251,18 +220,18 @@ func requireExistingAccount(name string) string {
 func requireEnabledAccount(name string) string {
 	name = requireExistingAccount(name)
 	if isAccountDisabled(name) {
-		fatalf("Account '%s' is disabled. Run: %s", name, binCmd("accounts enable "+name))
+		ui.Fatalf("Account '%s' is disabled. Run: %s", name, cli.Cmd("accounts enable "+name))
 	}
 	return name
 }
 
 func liveCredentials() (oauth any, claudeAiOauth any, err error) {
-	cf := credFile()
+	cf := claude.CredFile()
 	if _, err := os.Stat(cf); os.IsNotExist(err) {
 		return nil, nil, fmt.Errorf("no credentials file at %s yet — run 'claude auth login' first", cf)
 	}
 
-	global, err := readJSONObject(globalFile())
+	global, err := readJSONObject(claude.GlobalFile())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -308,7 +277,7 @@ func activeSavedAccountName() (string, bool) {
 func syncActiveSnapshot() (string, error) {
 	name, ok := activeSavedAccountName()
 	if !ok {
-		return "", fmt.Errorf("active account is not saved — run: %s", binCmd("accounts save <name>"))
+		return "", fmt.Errorf("active account is not saved — run: %s", cli.Cmd("accounts save <name>"))
 	}
 	oauth, claudeAiOauth, err := liveCredentials()
 	if err != nil {
@@ -323,7 +292,7 @@ func syncActiveSnapshot() (string, error) {
 func cmdSave(name string) {
 	if name == "" {
 		if !isInteractive() {
-			fatalf("Usage: %s", binCmd("accounts save <name>"))
+			ui.Fatalf("Usage: %s", cli.Cmd("accounts save <name>"))
 		}
 		name = promptSaveName()
 	} else {
@@ -332,86 +301,86 @@ func cmdSave(name string) {
 
 	oauth, claudeAiOauth, err := liveCredentials()
 	if err != nil {
-		fatalf("%v", err)
+		ui.Fatalf("%v", err)
 	}
 	if err := writeAccountSnapshot(name, oauth, claudeAiOauth); err != nil {
-		fatalf("could not write %s: %v", accountSnapPath(name), err)
+		ui.Fatalf("could not write %s: %v", accountSnapPath(name), err)
 	}
-	printSuccess(fmt.Sprintf("Saved the currently logged-in account as %s.", accountStyle.Render(name)))
+	ui.PrintSuccess(fmt.Sprintf("Saved the currently logged-in account as %s.", ui.AccountStyle.Render(name)))
 }
 
 func cmdSync() {
 	name, err := syncActiveSnapshot()
 	if err != nil {
-		fatalf("%v", err)
+		ui.Fatalf("%v", err)
 	}
-	printSuccess(fmt.Sprintf("Synced live credentials into %s.", accountStyle.Render(name)))
+	ui.PrintSuccess(fmt.Sprintf("Synced live credentials into %s.", ui.AccountStyle.Render(name)))
 }
 
 func cmdUse(name string) {
-	name = resolveAccountName(name, binCmd("accounts use <name>"))
+	name = resolveAccountName(name, cli.Cmd("accounts use <name>"))
 	snapPath := accountSnapPath(name)
 	if _, err := os.Stat(snapPath); os.IsNotExist(err) {
-		fatalf("No saved account called '%s'. Run: %s (while logged into it)", name, binCmd("accounts save "+name))
+		ui.Fatalf("No saved account called '%s'. Run: %s (while logged into it)", name, cli.Cmd("accounts save "+name))
 	}
 	if isAccountDisabled(name) {
-		fatalf("Account '%s' is disabled. Run: %s", name, binCmd("accounts enable "+name))
+		ui.Fatalf("Account '%s' is disabled. Run: %s", name, cli.Cmd("accounts enable "+name))
 	}
 
 	from, _ := activeSavedAccountName()
 	if from == name {
-		printMuted(fmt.Sprintf("already using %s", accountStyle.Render(name)))
+		ui.PrintMuted(fmt.Sprintf("already using %s", ui.AccountStyle.Render(name)))
 		return
 	}
 	if from != "" {
 		if _, err := syncActiveSnapshot(); err != nil {
-			fatalf("%v", err)
+			ui.Fatalf("%v", err)
 		}
 	}
 
 	snap, err := readJSONObject(snapPath)
 	if err != nil {
-		fatalf("%v", err)
+		ui.Fatalf("%v", err)
 	}
 	oauth := snap["oauthAccount"]
 	cred := snap["claudeAiOauth"]
 
-	gf := globalFile()
+	gf := claude.GlobalFile()
 	global, err := readJSONObject(gf)
 	if err != nil {
-		fatalf("%v", err)
+		ui.Fatalf("%v", err)
 	}
 	global["oauthAccount"] = oauth
 	if err := writeJSONObject(gf, global, 0600); err != nil {
-		fatalf("could not write %s: %v", gf, err)
+		ui.Fatalf("could not write %s: %v", gf, err)
 	}
 
-	cf := credFile()
+	cf := claude.CredFile()
 	var credFileObj map[string]any
 	if _, err := os.Stat(cf); err == nil {
 		credFileObj, err = readJSONObject(cf)
 		if err != nil {
-			fatalf("%v", err)
+			ui.Fatalf("%v", err)
 		}
 	} else {
 		credFileObj = map[string]any{}
 	}
 	credFileObj["claudeAiOauth"] = cred
 	if err := writeJSONObject(cf, credFileObj, 0600); err != nil {
-		fatalf("could not write %s: %v", cf, err)
+		ui.Fatalf("could not write %s: %v", cf, err)
 	}
 
 	appendSwitchLog(from, name)
-	printSuccess(fmt.Sprintf("Switched active account to %s", accountStyle.Render(name)))
+	ui.PrintSuccess(fmt.Sprintf("Switched active account to %s", ui.AccountStyle.Render(name)))
 }
 
 func cmdHistory() {
 	events, err := readSwitchLog()
 	if err != nil {
-		fatalf("%v", err)
+		ui.Fatalf("%v", err)
 	}
 	if len(events) == 0 {
-		printMuted("(no switch history yet)")
+		ui.PrintMuted("(no switch history yet)")
 		return
 	}
 
@@ -422,50 +391,50 @@ func cmdHistory() {
 			from = "—"
 		}
 		lipgloss.Printf("%s  %s → %s\n",
-			mutedStyle.Render(ev.TS),
-			accountStyle.Render(from),
-			accountStyle.Render(ev.To),
+			ui.MutedStyle.Render(ev.TS),
+			ui.AccountStyle.Render(from),
+			ui.AccountStyle.Render(ev.To),
 		)
 	}
 }
 
 func cmdRemove(name string) {
-	name = resolveAnyAccountName(name, binCmd("accounts remove <name>"))
+	name = resolveAnyAccountName(name, cli.Cmd("accounts remove <name>"))
 	snapPath := accountSnapPath(name)
 	if err := os.Remove(snapPath); err != nil {
 		if os.IsNotExist(err) {
-			fatalf("No saved account called '%s'", name)
+			ui.Fatalf("No saved account called '%s'", name)
 		}
-		fatalf("could not remove %s: %v", name, err)
+		ui.Fatalf("could not remove %s: %v", name, err)
 	}
-	printSuccess(fmt.Sprintf("Removed saved account %s.", accountStyle.Render(name)))
+	ui.PrintSuccess(fmt.Sprintf("Removed saved account %s.", ui.AccountStyle.Render(name)))
 }
 
 func cmdDisable(name string) {
-	name = resolveAccountName(name, binCmd("accounts disable <name>"))
+	name = resolveAccountName(name, cli.Cmd("accounts disable <name>"))
 	name = requireEnabledAccount(name)
 	if err := setAccountDisabled(name, true); err != nil {
-		fatalf("could not disable %s: %v", name, err)
+		ui.Fatalf("could not disable %s: %v", name, err)
 	}
-	printSuccess(fmt.Sprintf("Disabled %s. It stays saved but is skipped by usage/use until re-enabled.", accountStyle.Render(name)))
+	ui.PrintSuccess(fmt.Sprintf("Disabled %s. It stays saved but is skipped by usage/use until re-enabled.", ui.AccountStyle.Render(name)))
 }
 
 func cmdEnable(name string) {
-	name = resolveDisabledAccountName(name, binCmd("accounts enable <name>"))
+	name = resolveDisabledAccountName(name, cli.Cmd("accounts enable <name>"))
 	name = requireExistingAccount(name)
 	if !isAccountDisabled(name) {
-		fatalf("Account '%s' is not disabled", name)
+		ui.Fatalf("Account '%s' is not disabled", name)
 	}
 	if err := setAccountDisabled(name, false); err != nil {
-		fatalf("could not enable %s: %v", name, err)
+		ui.Fatalf("could not enable %s: %v", name, err)
 	}
-	printSuccess(fmt.Sprintf("Enabled %s.", accountStyle.Render(name)))
+	ui.PrintSuccess(fmt.Sprintf("Enabled %s.", ui.AccountStyle.Render(name)))
 }
 
 func cmdRename(oldName, newName string) {
 	if oldName == "" {
 		if !isInteractive() {
-			fatalf("Usage: %s", binCmd("accounts rename <old> <new>"))
+			ui.Fatalf("Usage: %s", cli.Cmd("accounts rename <old> <new>"))
 		}
 		oldName = promptSelectAnyAccount()
 	} else {
@@ -473,39 +442,39 @@ func cmdRename(oldName, newName string) {
 	}
 	if newName == "" {
 		if !isInteractive() {
-			fatalf("Usage: %s", binCmd("accounts rename <old> <new>"))
+			ui.Fatalf("Usage: %s", cli.Cmd("accounts rename <old> <new>"))
 		}
 		newName = promptAccountName("work")
 	} else {
 		newName = requireAccountName(newName)
 	}
 	if oldName == newName {
-		fatalf("old and new names are the same")
+		ui.Fatalf("old and new names are the same")
 	}
 
 	oldPath := accountSnapPath(oldName)
 	newPath := accountSnapPath(newName)
 	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
-		fatalf("No saved account called '%s'", oldName)
+		ui.Fatalf("No saved account called '%s'", oldName)
 	}
 	if _, err := os.Stat(newPath); err == nil {
-		fatalf("An account named '%s' already exists", newName)
+		ui.Fatalf("An account named '%s' already exists", newName)
 	} else if !os.IsNotExist(err) {
-		fatalf("could not check %s: %v", newName, err)
+		ui.Fatalf("could not check %s: %v", newName, err)
 	}
 
 	if err := os.Rename(oldPath, newPath); err != nil {
-		fatalf("could not rename %s to %s: %v", oldName, newName, err)
+		ui.Fatalf("could not rename %s to %s: %v", oldName, newName, err)
 	}
-	printSuccess(fmt.Sprintf("Renamed %s → %s.", accountStyle.Render(oldName), accountStyle.Render(newName)))
+	ui.PrintSuccess(fmt.Sprintf("Renamed %s → %s.", ui.AccountStyle.Render(oldName), ui.AccountStyle.Render(newName)))
 }
 
 func oauthFieldPlain(oauth map[string]any, key string) string {
-	value, ok := whoamiFieldValue(oauth[key])
+	value, ok := ui.WhoamiFieldValue(oauth[key])
 	if !ok {
 		return "—"
 	}
-	return formatWhoamiField(key, value)
+	return ui.FormatWhoamiField(key, value)
 }
 
 func savedOAuthAccount(name string) (map[string]any, bool) {
@@ -528,10 +497,10 @@ func savedOAuthAccount(name string) (map[string]any, bool) {
 }
 
 func cmdList() {
-	initStyles()
+	ui.InitStyles()
 	names := listAccountNames()
 	if len(names) == 0 {
-		printMuted("(no saved accounts yet)")
+		ui.PrintMuted("(no saved accounts yet)")
 		return
 	}
 
@@ -562,25 +531,25 @@ func cmdList() {
 
 	t := table.New().
 		Border(lipgloss.NormalBorder()).
-		BorderStyle(mutedStyle).
+		BorderStyle(ui.MutedStyle).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			if row == table.HeaderRow {
-				return labelStyle.Bold(true).Padding(0, 1)
+				return ui.LabelStyle.Bold(true).Padding(0, 1)
 			}
 			if col == 0 {
 				switch {
 				case disabledRows[row]:
-					return mutedStyle.Padding(0, 1)
+					return ui.MutedStyle.Padding(0, 1)
 				case activeRows[row]:
-					return accountStyle.Bold(true).Foreground(lipgloss.Color("42")).Padding(0, 1)
+					return ui.AccountStyle.Bold(true).Foreground(lipgloss.Color("42")).Padding(0, 1)
 				default:
-					return accountStyle.Padding(0, 1)
+					return ui.AccountStyle.Padding(0, 1)
 				}
 			}
 			if disabledRows[row] {
-				return mutedStyle.Padding(0, 1)
+				return ui.MutedStyle.Padding(0, 1)
 			}
-			return whoamiValStyle.Padding(0, 1)
+			return ui.WhoamiValStyle.Padding(0, 1)
 		}).
 		Headers("Account", "Email", "Organization", "Type").
 		Rows(rows...)
@@ -588,7 +557,7 @@ func cmdList() {
 }
 
 func listAccountNames() []string {
-	entries, err := os.ReadDir(storeDir())
+	entries, err := os.ReadDir(paths.StoreDir())
 	if err != nil {
 		return nil
 	}
@@ -628,7 +597,7 @@ func listDisabledAccountNames() []string {
 }
 
 func activeOAuthAccount() (any, error) {
-	global, err := readJSONObject(globalFile())
+	global, err := readJSONObject(claude.GlobalFile())
 	if err != nil {
 		return nil, err
 	}
@@ -680,4 +649,169 @@ func isActiveSavedAccount(name string, active any) bool {
 		return false
 	}
 	return sameOAuthAccount(active, saved)
+}
+
+func optionalName(args []string) string {
+	if len(args) > 0 {
+		return args[0]
+	}
+	return ""
+}
+
+func completeAccountNames(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) != 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return listEnabledAccountNames(), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeAnyAccountNames(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) != 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return listAccountNames(), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeDisabledAccountNames(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) != 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return listDisabledAccountNames(), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeRenameArgs(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) >= 2 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	if len(args) == 1 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return listAccountNames(), cobra.ShellCompDirectiveNoFileComp
+}
+
+func cmdWhoami() {
+	oauth, err := activeOAuthAccount()
+	if err != nil {
+		ui.Fatalf("%v", err)
+	}
+	ui.PrintWhoami(oauth)
+}
+
+func Command() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "accounts",
+		Aliases: []string{"acc", "account"},
+		Short:   "Manage Claude Code accounts",
+		Long:    "Manage saved Claude Code accounts: save the logged-in account, switch to another, and list, rename, disable, or inspect them.",
+		Example: fmt.Sprintf(`
+  # First-time setup for multiple accounts:
+  claude auth login               # login with account A
+  %s accounts save personal
+  claude auth logout
+  claude auth login               # login with account B
+  %s accounts save work
+  %s accounts use personal     # switch without another browser login
+  %s accounts use work
+`, cli.Bin, cli.Bin, cli.Bin, cli.Bin),
+	}
+
+	cmd.AddCommand(
+		&cobra.Command{
+			Use:   "save [name]",
+			Short: "Snapshot the currently logged-in account",
+			Args:  cobra.MaximumNArgs(1),
+			Run: func(_ *cobra.Command, args []string) {
+				cmdSave(optionalName(args))
+			},
+		},
+		&cobra.Command{
+			Use:   "sync",
+			Short: "Update the active account's snapshot from live credentials",
+			Args:  cobra.NoArgs,
+			Run: func(_ *cobra.Command, _ []string) {
+				cmdSync()
+			},
+		},
+		&cobra.Command{
+			Use:               "use [name]",
+			Short:             "Switch to a saved account",
+			Args:              cobra.MaximumNArgs(1),
+			ValidArgsFunction: completeAccountNames,
+			Run: func(_ *cobra.Command, args []string) {
+				cmdUse(optionalName(args))
+			},
+		},
+		&cobra.Command{
+			Use:               "remove [name]",
+			Aliases:           []string{"rm"},
+			Short:             "Delete a saved account",
+			Args:              cobra.MaximumNArgs(1),
+			ValidArgsFunction: completeAnyAccountNames,
+			Run: func(_ *cobra.Command, args []string) {
+				cmdRemove(optionalName(args))
+			},
+		},
+		&cobra.Command{
+			Use:               "disable [name]",
+			Short:             "Disable a saved account (keeps it, skips API use)",
+			Args:              cobra.MaximumNArgs(1),
+			ValidArgsFunction: completeAccountNames,
+			Run: func(_ *cobra.Command, args []string) {
+				cmdDisable(optionalName(args))
+			},
+		},
+		&cobra.Command{
+			Use:               "enable [name]",
+			Short:             "Re-enable a disabled account",
+			Args:              cobra.MaximumNArgs(1),
+			ValidArgsFunction: completeDisabledAccountNames,
+			Run: func(_ *cobra.Command, args []string) {
+				cmdEnable(optionalName(args))
+			},
+		},
+		&cobra.Command{
+			Use:               "rename [old] [new]",
+			Aliases:           []string{"mv"},
+			Short:             "Rename a saved account",
+			Args:              cobra.MaximumNArgs(2),
+			ValidArgsFunction: completeRenameArgs,
+			Run: func(_ *cobra.Command, args []string) {
+				oldName, newName := "", ""
+				if len(args) > 0 {
+					oldName = args[0]
+				}
+				if len(args) > 1 {
+					newName = args[1]
+				}
+				cmdRename(oldName, newName)
+			},
+		},
+		&cobra.Command{
+			Use:   "list",
+			Short: "List saved accounts with details",
+			Args:  cobra.NoArgs,
+			Run: func(_ *cobra.Command, _ []string) {
+				cmdList()
+			},
+		},
+		&cobra.Command{
+			Use:   "history",
+			Short: "Show account switch history",
+			Args:  cobra.NoArgs,
+			Run: func(_ *cobra.Command, _ []string) {
+				cmdHistory()
+			},
+		},
+		&cobra.Command{
+			Use:   "whoami",
+			Short: "Show the active account",
+			Args:  cobra.NoArgs,
+			Run: func(_ *cobra.Command, _ []string) {
+				cmdWhoami()
+			},
+		},
+		statusCommand(),
+		usageCommand(),
+	)
+	return cmd
 }

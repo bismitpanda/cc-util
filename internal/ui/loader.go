@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"os"
@@ -47,16 +47,16 @@ func (m loaderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m loaderModel) View() tea.View {
-	return tea.NewView(m.spinner.View() + " " + mutedStyle.Render(m.label))
+	return tea.NewView(m.spinner.View() + " " + MutedStyle.Render(m.label))
 }
 
-func runWithLoader(label string, work func()) {
+func RunWithLoader(label string, work func()) {
 	if !term.IsTerminal(int(os.Stderr.Fd())) {
 		work()
 		return
 	}
 
-	initStyles()
+	InitStyles()
 	done := make(chan struct{})
 	go func() {
 		work()
@@ -68,6 +68,6 @@ func runWithLoader(label string, work func()) {
 		tea.WithOutput(os.Stderr),
 	)
 	if _, err := prog.Run(); err != nil {
-		fatalf("%v", err)
+		Fatalf("%v", err)
 	}
 }

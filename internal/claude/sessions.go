@@ -1,4 +1,4 @@
-package main
+package claude
 
 import (
 	"encoding/json"
@@ -16,10 +16,10 @@ type claudeSession struct {
 }
 
 func claudeSessionsDir() string {
-	return filepath.Join(claudeDir(), "sessions")
+	return filepath.Join(ClaudeDir(), "sessions")
 }
 
-func activeClaudeSessionCount() (int, error) {
+func ActiveSessionCount() (int, error) {
 	entries, err := os.ReadDir(claudeSessionsDir())
 	if err != nil {
 		if os.IsNotExist(err) {

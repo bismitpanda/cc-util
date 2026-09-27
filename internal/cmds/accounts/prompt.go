@@ -1,4 +1,4 @@
-package main
+package accounts
 
 import (
 	"errors"
@@ -10,6 +10,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
+	"github.com/bismitpanda/cc-util/internal/cli"
+	"github.com/bismitpanda/cc-util/internal/ui"
 	"golang.org/x/term"
 )
 
@@ -85,7 +87,7 @@ func exitOnPromptCancel(err error) {
 		os.Exit(0)
 	}
 	if err != nil {
-		fatalf("%v", err)
+		ui.Fatalf("%v", err)
 	}
 }
 
@@ -103,7 +105,7 @@ func validateAccountName(name string) error {
 func requireAccountName(name string) string {
 	name = strings.TrimSpace(name)
 	if err := validateAccountName(name); err != nil {
-		fatalf("%v", err)
+		ui.Fatalf("%v", err)
 	}
 	return name
 }
@@ -132,7 +134,7 @@ func promptSaveName() string {
 
 func promptSelectFromAccounts(names []string, emptyMsg string) string {
 	if len(names) == 0 {
-		fatalf("%s", emptyMsg)
+		ui.Fatalf("%s", emptyMsg)
 	}
 
 	var selected string
@@ -159,14 +161,14 @@ func promptSelectFromAccounts(names []string, emptyMsg string) string {
 func promptSelectEnabledAccount() string {
 	return promptSelectFromAccounts(
 		listEnabledAccountNames(),
-		fmt.Sprintf("No enabled accounts. Run: %s (or %s)", binCmd("accounts save <name>"), binCmd("accounts enable <name>")),
+		fmt.Sprintf("No enabled accounts. Run: %s (or %s)", cli.Cmd("accounts save <name>"), cli.Cmd("accounts enable <name>")),
 	)
 }
 
 func promptSelectAnyAccount() string {
 	return promptSelectFromAccounts(
 		listAccountNames(),
-		fmt.Sprintf("No saved accounts yet. Run: %s", binCmd("accounts save <name>")),
+		fmt.Sprintf("No saved accounts yet. Run: %s", cli.Cmd("accounts save <name>")),
 	)
 }
 

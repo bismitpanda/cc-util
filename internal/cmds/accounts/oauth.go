@@ -1,4 +1,4 @@
-package main
+package accounts
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/bismitpanda/cc-util/internal/claude"
 )
 
 const (
@@ -58,7 +60,7 @@ func accountClaudeAiOauth(name string) (map[string]any, map[string]any, error) {
 }
 
 func liveClaudeAiOauth() (map[string]any, error) {
-	cf := credFile()
+	cf := claude.CredFile()
 	cred, err := readJSONObject(cf)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -192,7 +194,7 @@ func persistAccountOAuth(name string, snap map[string]any, oauth map[string]any)
 }
 
 func writeLiveClaudeAiOauth(oauth map[string]any) error {
-	cf := credFile()
+	cf := claude.CredFile()
 	cred, err := readJSONObject(cf)
 	if err != nil {
 		if os.IsNotExist(err) {

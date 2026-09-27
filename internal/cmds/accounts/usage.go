@@ -1,4 +1,4 @@
-package main
+package accounts
 
 import (
 	"encoding/json"
@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/bismitpanda/cc-util/internal/claude"
+	"github.com/bismitpanda/cc-util/internal/ui"
+	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -232,21 +235,21 @@ const (
 func usageBar(percent float64, severity string, active bool, pace float64, showPace bool) string {
 	filled := max(min(int(percent/100*usageBarWidth), usageBarWidth), 0)
 
-	fillStyle := barFillStyle
-	fillColor := barFillColor
+	fillStyle := ui.BarFillStyle
+	fillColor := ui.BarFillColor
 	switch {
 	case severity == "critical":
-		fillStyle = criticalBarStyle
-		fillColor = criticalBarColor
+		fillStyle = ui.CriticalBarStyle
+		fillColor = ui.CriticalBarColor
 	case active:
-		fillStyle = activeBarStyle
-		fillColor = activeBarColor
+		fillStyle = ui.ActiveBarStyle
+		fillColor = ui.ActiveBarColor
 	}
 
 	if !showPace {
 		empty := usageBarWidth - filled
 		return fillStyle.Render(strings.Repeat("█", filled)) +
-			barEmptyStyle.Render(strings.Repeat("█", empty))
+			ui.BarEmptyStyle.Render(strings.Repeat("█", empty))
 	}
 
 	paceIdx := int(pace / 100 * usageBarWidth)
@@ -260,17 +263,17 @@ func usageBar(percent float64, severity string, active bool, pace float64, showP
 	var b strings.Builder
 	for i := range usageBarWidth {
 		if i == paceIdx {
-			fg, bg := paceBlack, fillColor
+			fg, bg := ui.PaceBlack, fillColor
 			if i >= filled {
-				fg, bg = paceWhite, barEmptyColor
+				fg, bg = ui.PaceWhite, ui.BarEmptyColor
 			}
-			b.WriteString(paceMarkStyle.Foreground(fg).Background(bg).Render("│"))
+			b.WriteString(ui.PaceMarkStyle.Foreground(fg).Background(bg).Render("│"))
 			continue
 		}
 		if i < filled {
 			b.WriteString(fillStyle.Render("█"))
 		} else {
-			b.WriteString(barEmptyStyle.Render("█"))
+			b.WriteString(ui.BarEmptyStyle.Render("█"))
 		}
 	}
 	return b.String()
@@ -296,11 +299,11 @@ func formatPaceDelta(used, pace float64) (string, lipgloss.Style) {
 	delta := int(math.Round(used)) - int(math.Round(pace))
 	switch {
 	case delta > 0:
-		return fmt.Sprintf("%d%% over pace", delta), activeBarStyle
+		return fmt.Sprintf("%d%% over pace", delta), ui.ActiveBarStyle
 	case delta < 0:
-		return fmt.Sprintf("%d%% under pace", -delta), successStyle
+		return fmt.Sprintf("%d%% under pace", -delta), ui.SuccessStyle
 	default:
-		return "on pace", mutedStyle
+		return "on pace", ui.MutedStyle
 	}
 }
 
@@ -315,7 +318,7 @@ func usageLabelWidth(limits []usageLimit) int {
 }
 
 func printUsageLimit(limit usageLimit, labelWidth int, showPace bool) {
-	initStyles()
+	ui.InitStyles()
 	pace, hasPace := 0.0, false
 	if showPace {
 		pace, hasPace = limitPacePercent(limit, time.Now())
@@ -324,39 +327,39 @@ func printUsageLimit(limit usageLimit, labelWidth int, showPace bool) {
 	pct := fmt.Sprintf("%3.0f%%", limit.Percent)
 	line := lipgloss.JoinHorizontal(lipgloss.Top,
 		"  ",
-		labelStyle.Width(labelWidth).Render(limit.Label),
+		ui.LabelStyle.Width(labelWidth).Render(limit.Label),
 		"  ",
 		lipgloss.NewStyle().Width(usageBarWidth).Render(bar),
 		" ",
-		mutedStyle.Width(usagePctWidth).Align(lipgloss.Right).Render(pct),
+		ui.MutedStyle.Width(usagePctWidth).Align(lipgloss.Right).Render(pct),
 	)
 	if hasPace {
 		text, style := formatPaceDelta(limit.Percent, pace)
 		line += " " + style.Render("— "+text)
 	}
 	if limit.ResetsAt != "" {
-		line += " " + mutedStyle.Render("— "+formatResetAt(limit.ResetsAt))
+		line += " " + ui.MutedStyle.Render("— "+formatResetAt(limit.ResetsAt))
 	}
 	lipgloss.Println(line)
 }
 
 func printAccountUsage(name string, limits []usageLimit, active, grayed, showPace bool) {
-	initStyles()
+	ui.InitStyles()
 	if grayed {
-		line := mutedStyle.Render(name)
+		line := ui.MutedStyle.Render(name)
 		if resetAt, ok := usableAgainResetsAt(limits); ok {
-			line += " " + mutedStyle.Render("— "+formatResetAt(resetAt))
+			line += " " + ui.MutedStyle.Render("— "+formatResetAt(resetAt))
 		}
 		lipgloss.Println(line)
 	} else {
-		header := titleStyle.Render(name)
+		header := ui.TitleStyle.Render(name)
 		if active {
-			header += " " + successStyle.Render("● active")
+			header += " " + ui.SuccessStyle.Render("● active")
 		}
 		lipgloss.Println(header)
 	}
 	if len(limits) == 0 {
-		printMuted("  (no usage limits returned)")
+		ui.PrintMuted("  (no usage limits returned)")
 		return
 	}
 	labelWidth := usageLabelWidth(limits)
@@ -491,7 +494,7 @@ func fetchLiveAccountUsage(name string) ([]usageLimit, error) {
 }
 
 func fetchSelectedAccountUsage(name string) ([]usageLimit, error) {
-	sessionCount, err := activeClaudeSessionCount()
+	sessionCount, err := claude.ActiveSessionCount()
 	if err != nil {
 		return nil, err
 	}
@@ -632,15 +635,15 @@ func sortUsableByUsage(results []accountUsageResult) {
 }
 
 func printUnavailableAccounts(results []accountUsageResult, showPace bool) {
-	initStyles()
+	ui.InitStyles()
 	sortUnavailableByReset(results)
 	for i, res := range results {
 		if i > 0 {
 			fmt.Println()
 		}
 		if res.err != nil {
-			lipgloss.Println(mutedStyle.Render(res.name))
-			printMuted("  " + res.err.Error())
+			lipgloss.Println(ui.MutedStyle.Render(res.name))
+			ui.PrintMuted("  " + res.err.Error())
 			continue
 		}
 		printAccountUsage(res.name, res.limits, false, true, showPace)
@@ -661,7 +664,7 @@ func usageResultUnavailable(res accountUsageResult) bool {
 
 func cmdUsage(name string, opts usageOptions) {
 	if name != "" && opts.activeOnly {
-		fatalf("cannot combine an account name with --active")
+		ui.Fatalf("cannot combine an account name with --active")
 	}
 
 	var names []string
@@ -669,11 +672,11 @@ func cmdUsage(name string, opts usageOptions) {
 	case opts.activeOnly:
 		activeName, ok := activeSavedAccountName()
 		if !ok {
-			printMuted("(no active saved account)")
+			ui.PrintMuted("(no active saved account)")
 			return
 		}
 		if isAccountDisabled(activeName) {
-			printMuted(fmt.Sprintf("(active account %s is disabled)", activeName))
+			ui.PrintMuted(fmt.Sprintf("(active account %s is disabled)", activeName))
 			return
 		}
 		names = []string{activeName}
@@ -681,9 +684,9 @@ func cmdUsage(name string, opts usageOptions) {
 		names = listEnabledAccountNames()
 		if len(names) == 0 {
 			if len(listAccountNames()) == 0 {
-				printMuted("(no saved accounts yet)")
+				ui.PrintMuted("(no saved accounts yet)")
 			} else {
-				printMuted("(no enabled accounts — all saved accounts are disabled)")
+				ui.PrintMuted("(no enabled accounts — all saved accounts are disabled)")
 			}
 			return
 		}
@@ -719,7 +722,7 @@ func cmdUsage(name string, opts usageOptions) {
 	default:
 		label = fmt.Sprintf("Fetching usage for %d accounts...", len(names))
 	}
-	runWithLoader(label, fetch)
+	ui.RunWithLoader(label, fetch)
 
 	active, _ := activeOAuthAccount()
 
@@ -741,15 +744,15 @@ func cmdUsage(name string, opts usageOptions) {
 	switch {
 	case opts.activeOnly && opts.unavailableOnly:
 		if activeRes == nil {
-			printMuted("(no active saved account)")
+			ui.PrintMuted("(no active saved account)")
 			return
 		}
 		if !usageResultUnavailable(*activeRes) {
-			printMuted("(active account is available)")
+			ui.PrintMuted("(active account is available)")
 			return
 		}
 		if activeRes.err != nil {
-			printError(activeRes.name, activeRes.err.Error())
+			ui.PrintError(activeRes.name, activeRes.err.Error())
 			return
 		}
 		printAccountUsage(activeRes.name, activeRes.limits, true, true, opts.pace)
@@ -757,15 +760,15 @@ func cmdUsage(name string, opts usageOptions) {
 
 	case opts.activeOnly && opts.availableOnly:
 		if activeRes == nil {
-			printMuted("(no active saved account)")
+			ui.PrintMuted("(no active saved account)")
 			return
 		}
 		if usageResultUnavailable(*activeRes) {
 			if activeRes.err != nil {
-				printError(activeRes.name, activeRes.err.Error())
+				ui.PrintError(activeRes.name, activeRes.err.Error())
 				return
 			}
-			printMuted("(active account is unavailable)")
+			ui.PrintMuted("(active account is unavailable)")
 			return
 		}
 		printAccountUsage(activeRes.name, activeRes.limits, true, false, opts.pace)
@@ -773,11 +776,11 @@ func cmdUsage(name string, opts usageOptions) {
 
 	case opts.activeOnly:
 		if activeRes == nil {
-			printMuted("(no active saved account)")
+			ui.PrintMuted("(no active saved account)")
 			return
 		}
 		if activeRes.err != nil {
-			printError(activeRes.name, activeRes.err.Error())
+			ui.PrintError(activeRes.name, activeRes.err.Error())
 			return
 		}
 		printAccountUsage(activeRes.name, activeRes.limits, true, false, opts.pace)
@@ -788,7 +791,7 @@ func cmdUsage(name string, opts usageOptions) {
 			unavailable = append([]accountUsageResult{*activeRes}, unavailable...)
 		}
 		if len(unavailable) == 0 {
-			printMuted("(no unavailable accounts)")
+			ui.PrintMuted("(no unavailable accounts)")
 			return
 		}
 		printUnavailableAccounts(unavailable, opts.pace)
@@ -809,7 +812,7 @@ func cmdUsage(name string, opts usageOptions) {
 			printed = true
 		}
 		if !printed {
-			printMuted("(no available accounts)")
+			ui.PrintMuted("(no available accounts)")
 		}
 		return
 	}
@@ -817,7 +820,7 @@ func cmdUsage(name string, opts usageOptions) {
 	printed := false
 	if activeRes != nil {
 		if activeRes.err != nil {
-			printError(activeRes.name, activeRes.err.Error())
+			ui.PrintError(activeRes.name, activeRes.err.Error())
 		} else {
 			printAccountUsage(activeRes.name, activeRes.limits, true, false, opts.pace)
 		}
@@ -837,4 +840,31 @@ func cmdUsage(name string, opts usageOptions) {
 		}
 		printUnavailableAccounts(unavailable, opts.pace)
 	}
+}
+
+func usageCommand() *cobra.Command {
+	var activeOnly, availableOnly, unavailableOnly, snapshotOnly, pace bool
+	cmd := &cobra.Command{
+		Use:               "usage [name]",
+		Aliases:           []string{"limit"},
+		Short:             "Show rate-limit usage (all accounts, or a named one)",
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: completeAccountNames,
+		Run: func(_ *cobra.Command, args []string) {
+			cmdUsage(optionalName(args), usageOptions{
+				activeOnly:      activeOnly,
+				availableOnly:   availableOnly,
+				unavailableOnly: unavailableOnly,
+				snapshotOnly:    snapshotOnly,
+				pace:            pace,
+			})
+		},
+	}
+	cmd.Flags().BoolVarP(&activeOnly, "active", "A", false, "Show only the active account")
+	cmd.Flags().BoolVarP(&availableOnly, "available", "a", false, "Show only available accounts")
+	cmd.Flags().BoolVarP(&unavailableOnly, "unavailable", "u", false, "Show only unavailable accounts")
+	cmd.Flags().BoolVarP(&snapshotOnly, "snapshot-only", "s", false, "Use saved snapshots only (no live creds, writes, or token refresh)")
+	cmd.Flags().BoolVar(&pace, "pace", false, "Overlay a linear burn-rate marker and over/under-pace text")
+	cmd.MarkFlagsMutuallyExclusive("available", "unavailable")
+	return cmd
 }
