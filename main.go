@@ -188,7 +188,6 @@ func newRootCmd() *cobra.Command {
 		},
 		newStatusCmd(),
 		newUsageCmd(),
-		newTokensCmd(),
 	)
 
 	root.AddCommand(accountsCmd)

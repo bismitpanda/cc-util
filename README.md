@@ -70,13 +70,10 @@ Requires [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`
 | `cc-util accounts whoami`             | Show the active account                               |
 | `cc-util accounts status`             | Show credential validity and expiry                   |
 | `cc-util accounts usage [name]`       | Show rate-limit usage (all accounts, or a named one)  |
-| `cc-util accounts tokens [name]`      | Show Claude Code token usage by account (local JSONL) |
 | `cc-util completion <shell>`          | Print a completion script for Bash, Fish, or Zsh      |
 | `cc-util help`                        | Show help                                             |
 
 `acc` and `account` are aliases for `accounts`.
-
-`tokens` attributes usage from Claude Code project JSONL logs using `~/.cc-util/switches.jsonl`. It also shows cumulative active time per account from that switch history (last segment runs until now). Pass `--spend` for estimated USD cost, or `-A` / `--active` for the active account only.
 
 Omit `[name]` in an interactive terminal and you'll get a prompt.
 
@@ -159,7 +156,5 @@ Each save stores `oauthAccount` (from `~/.claude.json`) and `claudeAiOauth` (fro
 `use` syncs the outgoing account's snapshot first (when it matches a saved account), then writes the target snapshot into the active Claude Code config files. Each successful switch appends a line to `~/.cc-util/switches.jsonl` (`ts`, `from`, `to`).
 
 `disable` marks a snapshot as disabled without deleting it — useful when a subscription is paused or expired and API calls return 403. Disabled accounts stay in `list` (marked) but are skipped by `usage`/`use`/`status` until `enable`.
-
-`tokens` reads Claude Code usage from `~/.claude/projects/` (and `~/.config/claude/projects/`), then attributes each entry to whichever account was active at that timestamp per the switch log. `--spend` estimates USD from model pricing (or transcript `costUSD` when present).
 
 Account snapshots are stored with mode `0600`; `~/.cc-util/` and `accounts/` are `0700`.
