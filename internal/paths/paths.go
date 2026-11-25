@@ -19,14 +19,6 @@ func RootDir() string {
 	return filepath.Join(HomeDir(), ".cc-util")
 }
 
-func StoreDir() string {
-	return filepath.Join(RootDir(), "accounts")
-}
-
-func SwitchesLog() string {
-	return filepath.Join(RootDir(), "switches.jsonl")
-}
-
-func ModelNamesFile() string {
-	return filepath.Join(RootDir(), "model-names.json")
+func DBFile() string {
+	return filepath.Join(RootDir(), "cc-util.db")
 }

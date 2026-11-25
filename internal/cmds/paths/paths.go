@@ -31,9 +31,7 @@ func cmdPaths() {
 		{"Claude global file", claude.GlobalFile()},
 		{"Claude credentials", claude.CredFile()},
 		{"cc-util root", paths.RootDir()},
-		{"cc-util accounts", paths.StoreDir()},
-		{"cc-util switch log", paths.SwitchesLog()},
-		{"cc-util model cache", paths.ModelNamesFile()},
+		{"cc-util database", paths.DBFile()},
 	}
 
 	if cli.JSON {

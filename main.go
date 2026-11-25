@@ -8,6 +8,7 @@ import (
 	"charm.land/fang/v2"
 	"github.com/bismitpanda/cc-util/internal/cli"
 	"github.com/bismitpanda/cc-util/internal/cmds/accounts"
+	"github.com/bismitpanda/cc-util/internal/cmds/browser"
 	"github.com/bismitpanda/cc-util/internal/cmds/memory"
 	"github.com/bismitpanda/cc-util/internal/cmds/paths"
 	"github.com/bismitpanda/cc-util/internal/cmds/projects"
@@ -38,7 +39,7 @@ func newRootCmd() *cobra.Command {
 	}
 	cli.Bin = bin
 	root.PersistentFlags().BoolVar(&cli.JSON, "json", false, "Output machine-readable JSON instead of formatted text")
-	root.AddCommand(accounts.Command(), projects.Command(), memory.Command(), paths.Command())
+	root.AddCommand(accounts.Command(), browser.Command(), projects.Command(), memory.Command(), paths.Command())
 	return root
 }
 

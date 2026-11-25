@@ -1,29 +1,22 @@
 package accounts
 
 import (
-	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
-	"time"
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/bismitpanda/cc-util/internal/claude"
 	"github.com/bismitpanda/cc-util/internal/cli"
 	"github.com/bismitpanda/cc-util/internal/paths"
+	"github.com/bismitpanda/cc-util/internal/store"
 	"github.com/bismitpanda/cc-util/internal/ui"
 	"github.com/spf13/cobra"
 )
-
-type switchEvent struct {
-	TS   string `json:"ts"`
-	From string `json:"from"`
-	To   string `json:"to"`
-}
 
 func readJSONObject(path string) (map[string]any, error) {
 	data, err := os.ReadFile(path)
@@ -79,13 +72,15 @@ func orDefault(v any, ok bool, def any) any {
 }
 
 func EnsureSetup() {
-	for _, dir := range []string{paths.RootDir(), paths.StoreDir()} {
-		if err := os.MkdirAll(dir, 0700); err != nil {
-			ui.Fatalf("could not create %s: %v", dir, err)
-		}
-		if err := os.Chmod(dir, 0700); err != nil {
-			ui.Fatalf("could not chmod %s: %v", dir, err)
-		}
+	dir := paths.RootDir()
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		ui.Fatalf("could not create %s: %v", dir, err)
+	}
+	if err := os.Chmod(dir, 0700); err != nil {
+		ui.Fatalf("could not chmod %s: %v", dir, err)
+	}
+	if _, err := store.Default(); err != nil {
+		ui.Fatalf("%v", err)
 	}
 
 	gf := claude.GlobalFile()
@@ -96,56 +91,27 @@ func EnsureSetup() {
 	}
 }
 
+func db() *store.Store {
+	s, err := store.Default()
+	if err != nil {
+		ui.Fatalf("%v", err)
+	}
+	return s
+}
+
 func appendSwitchLog(from, to string) {
-	ev := switchEvent{
-		TS:   time.Now().UTC().Format(time.RFC3339),
-		From: from,
-		To:   to,
-	}
-	data, err := json.Marshal(ev)
-	if err != nil {
-		return
-	}
-	f, err := os.OpenFile(paths.SwitchesLog(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	_, _ = f.Write(append(data, '\n'))
+	_ = db().AddSwitch(from, to)
 }
 
-func readSwitchLog() ([]switchEvent, error) {
-	path := paths.SwitchesLog()
-	f, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
+func savedAccount(name string) (store.Account, error) {
+	if err := validateAccountName(name); err != nil {
+		return store.Account{}, err
 	}
-	defer f.Close()
-
-	var events []switchEvent
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
-			continue
-		}
-		var ev switchEvent
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			continue
-		}
-		events = append(events, ev)
+	account, err := db().Account(name)
+	if errors.Is(err, store.ErrNotFound) {
+		return store.Account{}, fmt.Errorf("no saved account called '%s'", name)
 	}
-	if err := sc.Err(); err != nil {
-		return nil, err
-	}
-	return events, nil
-}
-
-func accountSnapPath(name string) string {
-	return filepath.Join(paths.StoreDir(), requireAccountName(name)+".json")
+	return account, err
 }
 
 func resolveAccountName(name string, usage string) string {
@@ -179,34 +145,17 @@ func resolveDisabledAccountName(name string, usage string) string {
 }
 
 func accountExists(name string) bool {
-	_, err := os.Stat(accountSnapPath(name))
+	_, err := savedAccount(name)
 	return err == nil
 }
 
 func isAccountDisabled(name string) bool {
-	if err := validateAccountName(name); err != nil {
-		return false
-	}
-	snap, err := readJSONObject(accountSnapPath(name))
-	if err != nil {
-		return false
-	}
-	disabled, ok := snap["disabled"].(bool)
-	return ok && disabled
+	account, err := savedAccount(name)
+	return err == nil && account.Disabled
 }
 
 func setAccountDisabled(name string, disabled bool) error {
-	path := accountSnapPath(name)
-	snap, err := readJSONObject(path)
-	if err != nil {
-		return err
-	}
-	if disabled {
-		snap["disabled"] = true
-	} else {
-		delete(snap, "disabled")
-	}
-	return writeJSONObject(path, snap, 0600)
+	return db().SetDisabled(name, disabled)
 }
 
 func requireExistingAccount(name string) string {
@@ -248,17 +197,7 @@ func liveCredentials() (oauth any, claudeAiOauth any, err error) {
 }
 
 func writeAccountSnapshot(name string, oauth, claudeAiOauth any) error {
-	snap := map[string]any{
-		"oauthAccount":  oauth,
-		"claudeAiOauth": claudeAiOauth,
-	}
-	path := accountSnapPath(name)
-	if existing, err := readJSONObject(path); err == nil {
-		if disabled, ok := existing["disabled"].(bool); ok && disabled {
-			snap["disabled"] = true
-		}
-	}
-	return writeJSONObject(path, snap, 0600)
+	return db().SaveAccount(name, oauth, claudeAiOauth)
 }
 
 func ActiveSavedAccountName() (string, bool) {
@@ -284,7 +223,7 @@ func syncActiveSnapshot() (string, error) {
 		return "", err
 	}
 	if err := writeAccountSnapshot(name, oauth, claudeAiOauth); err != nil {
-		return "", fmt.Errorf("could not write %s: %w", accountSnapPath(name), err)
+		return "", fmt.Errorf("could not save %s: %w", name, err)
 	}
 	return name, nil
 }
@@ -311,7 +250,7 @@ func cmdSave(name string) {
 		ui.Fatalf("%v", err)
 	}
 	if err := writeAccountSnapshot(name, oauth, claudeAiOauth); err != nil {
-		ui.Fatalf("could not write %s: %v", accountSnapPath(name), err)
+		ui.Fatalf("could not save %s: %v", name, err)
 	}
 	if cli.JSON {
 		ui.PrintJSON(actionResult{Status: "saved", Account: name})
@@ -334,8 +273,7 @@ func cmdSync() {
 
 func cmdUse(name string) {
 	name = resolveAccountName(name, cli.Cmd("accounts use <name>"))
-	snapPath := accountSnapPath(name)
-	if _, err := os.Stat(snapPath); os.IsNotExist(err) {
+	if !accountExists(name) {
 		ui.Fatalf("No saved account called '%s'. Run: %s (while logged into it)", name, cli.Cmd("accounts save "+name))
 	}
 	if isAccountDisabled(name) {
@@ -357,12 +295,12 @@ func cmdUse(name string) {
 		}
 	}
 
-	snap, err := readJSONObject(snapPath)
+	account, err := savedAccount(name)
 	if err != nil {
 		ui.Fatalf("%v", err)
 	}
-	oauth := snap["oauthAccount"]
-	cred := snap["claudeAiOauth"]
+	oauth := account.OAuthAccount
+	cred := account.ClaudeAiOauth
 
 	gf := claude.GlobalFile()
 	global, err := readJSONObject(gf)
@@ -398,12 +336,12 @@ func cmdUse(name string) {
 }
 
 func cmdHistory() {
-	events, err := readSwitchLog()
+	events, err := db().Switches()
 	if err != nil {
 		ui.Fatalf("%v", err)
 	}
 	if cli.JSON {
-		out := make([]switchEvent, len(events))
+		out := make([]store.Switch, len(events))
 		for i, ev := range events {
 			out[len(events)-1-i] = ev
 		}
@@ -447,9 +385,8 @@ func cmdRemove(name string, yes bool) {
 			return
 		}
 	}
-	snapPath := accountSnapPath(name)
-	if err := os.Remove(snapPath); err != nil {
-		if os.IsNotExist(err) {
+	if err := db().RemoveAccount(name); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
 			ui.Fatalf("No saved account called '%s'", name)
 		}
 		ui.Fatalf("could not remove %s: %v", name, err)
@@ -527,18 +464,13 @@ func cmdRename(oldName, newName string) {
 		ui.Fatalf("old and new names are the same")
 	}
 
-	oldPath := accountSnapPath(oldName)
-	newPath := accountSnapPath(newName)
-	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+	if !accountExists(oldName) {
 		ui.Fatalf("No saved account called '%s'", oldName)
 	}
-	if _, err := os.Stat(newPath); err == nil {
+	if accountExists(newName) {
 		ui.Fatalf("An account named '%s' already exists", newName)
-	} else if !os.IsNotExist(err) {
-		ui.Fatalf("could not check %s: %v", newName, err)
 	}
-
-	if err := os.Rename(oldPath, newPath); err != nil {
+	if err := db().RenameAccount(oldName, newName); err != nil {
 		ui.Fatalf("could not rename %s to %s: %v", oldName, newName, err)
 	}
 	if cli.JSON {
@@ -557,22 +489,11 @@ func oauthFieldPlain(oauth map[string]any, key string) string {
 }
 
 func savedOAuthAccount(name string) (map[string]any, bool) {
-	if err := validateAccountName(name); err != nil {
+	account, err := savedAccount(name)
+	if err != nil || len(account.OAuthAccount) == 0 {
 		return nil, false
 	}
-	snap, err := readJSONObject(accountSnapPath(name))
-	if err != nil {
-		return nil, false
-	}
-	oauthVal, ok := snap["oauthAccount"]
-	if !ok || oauthVal == nil {
-		return nil, false
-	}
-	m, ok := oauthVal.(map[string]any)
-	if !ok || len(m) == 0 {
-		return nil, false
-	}
-	return m, true
+	return account.OAuthAccount, true
 }
 
 type accountListEntry struct {
@@ -582,6 +503,7 @@ type accountListEntry struct {
 	Email        string `json:"email,omitempty"`
 	Organization string `json:"organization,omitempty"`
 	Type         string `json:"type,omitempty"`
+	ChromeDir    string `json:"chromeProfile,omitempty"`
 }
 
 func accountJSONFields(name string) (email, org, typ string) {
@@ -605,6 +527,10 @@ func cmdList() {
 	names := listAccountNames()
 	if cli.JSON {
 		active, _ := activeOAuthAccount()
+		dirs, err := db().AccountProfiles()
+		if err != nil {
+			ui.Fatalf("%v", err)
+		}
 		out := make([]accountListEntry, len(names))
 		for i, name := range names {
 			email, org, typ := accountJSONFields(name)
@@ -615,6 +541,7 @@ func cmdList() {
 				Email:        email,
 				Organization: org,
 				Type:         typ,
+				ChromeDir:    dirs[savedAccountUUID(name)],
 			}
 		}
 		ui.PrintJSON(out)
@@ -628,6 +555,7 @@ func cmdList() {
 	}
 
 	active, _ := activeOAuthAccount()
+	chromeProfiles := accountProfileLabels()
 	activeRows := make([]bool, len(names))
 	disabledRows := make([]bool, len(names))
 	rows := make([][]string, len(names))
@@ -649,7 +577,11 @@ func cmdList() {
 			org = oauthFieldPlain(oauth, "organizationName")
 			typ = oauthFieldPlain(oauth, "organizationType")
 		}
-		rows[i] = []string{account, email, org, typ}
+		chromeProfile, ok := chromeProfiles[savedAccountUUID(name)]
+		if !ok {
+			chromeProfile = "—"
+		}
+		rows[i] = []string{account, email, org, typ, chromeProfile}
 	}
 
 	t := table.New().
@@ -674,29 +606,29 @@ func cmdList() {
 			}
 			return ui.WhoamiValStyle.Padding(0, 1)
 		}).
-		Headers("Account", "Email", "Organization", "Type").
+		Headers("Account", "Email", "Organization", "Type", "Chrome profile").
 		Rows(rows...)
 	lipgloss.Println(t)
 }
 
 func listAccountNames() []string {
-	entries, err := os.ReadDir(paths.StoreDir())
+	accounts, err := db().Accounts()
 	if err != nil {
-		return nil
+		ui.Fatalf("%v", err)
 	}
-	var names []string
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-			continue
-		}
-		name := strings.TrimSuffix(e.Name(), ".json")
-		if err := validateAccountName(name); err != nil {
-			continue
-		}
-		names = append(names, name)
+	names := make([]string, len(accounts))
+	for i, account := range accounts {
+		names[i] = account.Name
 	}
-	sort.Strings(names)
 	return names
+}
+
+func savedAccountUUID(name string) string {
+	account, err := savedAccount(name)
+	if err != nil {
+		return ""
+	}
+	return accountUUID(account)
 }
 
 func listEnabledAccountNames() []string {
@@ -955,6 +887,7 @@ func Command() *cobra.Command {
 		},
 		statusCommand(),
 		usageCommand(),
+		profileCommand(),
 	)
 	return cmd
 }

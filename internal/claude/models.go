@@ -6,16 +6,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/bismitpanda/cc-util/internal/paths"
+	"github.com/bismitpanda/cc-util/internal/store"
 )
-
-type modelNameCache struct {
-	Names map[string]string `json:"names"`
-}
 
 type modelInfo struct {
 	ID          string `json:"id"`
@@ -23,12 +18,11 @@ type modelInfo struct {
 }
 
 func LoadModelNames(token string, ids []string) (map[string]string, error) {
-	cache := readModelNameCache()
-	changed := false
+	names := readModelNames()
 	seen := map[string]bool{}
 	var failed []string
 	for _, id := range ids {
-		if _, ok := DisplayModel(id, cache.Names); ok {
+		if _, ok := DisplayModel(id, names); ok {
 			continue
 		}
 		fetchID := id
@@ -48,16 +42,13 @@ func LoadModelNames(token string, ids []string) (map[string]string, error) {
 			failed = append(failed, fetchID)
 			continue
 		}
-		cache.Names[fetchID] = name
-		changed = true
-	}
-	if changed {
-		_ = writeModelNameCache(cache)
+		names[fetchID] = name
+		saveModelName(fetchID, name)
 	}
 	if len(failed) > 0 {
-		return cache.Names, fmt.Errorf("model name lookup failed for %s", strings.Join(failed, ", "))
+		return names, fmt.Errorf("model name lookup failed for %s", strings.Join(failed, ", "))
 	}
-	return cache.Names, nil
+	return names, nil
 }
 
 func DisplayModel(id string, names map[string]string) (string, bool) {
@@ -82,28 +73,24 @@ func DisplayModel(id string, names map[string]string) (string, bool) {
 	return name + " (" + suffix + ")", true
 }
 
-func readModelNameCache() modelNameCache {
-	data, err := os.ReadFile(paths.ModelNamesFile())
+func readModelNames() map[string]string {
+	s, err := store.Default()
 	if err != nil {
-		return modelNameCache{Names: map[string]string{}}
+		return map[string]string{}
 	}
-	var cache modelNameCache
-	if err := json.Unmarshal(data, &cache); err != nil || cache.Names == nil {
-		return modelNameCache{Names: map[string]string{}}
+	names, err := s.ModelNames()
+	if err != nil {
+		return map[string]string{}
 	}
-	return cache
+	return names
 }
 
-func writeModelNameCache(cache modelNameCache) error {
-	if err := os.MkdirAll(paths.RootDir(), 0700); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(cache, "", "  ")
+func saveModelName(id, name string) {
+	s, err := store.Default()
 	if err != nil {
-		return err
+		return
 	}
-	data = append(data, '\n')
-	return os.WriteFile(paths.ModelNamesFile(), data, 0600)
+	_ = s.PutModelName(id, name)
 }
 
 func fetchModelName(token, id string) (string, error) {

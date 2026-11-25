@@ -90,7 +90,7 @@ func cmdStatus(opts statusOptions) {
 		if isActive {
 			oauth, err = liveClaudeAiOauth()
 		} else {
-			_, oauth, err = accountClaudeAiOauth(name)
+			oauth, err = accountClaudeAiOauth(name)
 		}
 		row := makeAuthStatusRow(name, isActive, oauth, err, now)
 		if opts.expiredOnly && !rowHasExpiredToken(row) {

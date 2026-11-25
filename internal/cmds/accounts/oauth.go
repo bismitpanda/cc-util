@@ -37,26 +37,15 @@ type oauthRefreshResponse struct {
 	Scope        string `json:"scope"`
 }
 
-func accountClaudeAiOauth(name string) (map[string]any, map[string]any, error) {
-	if err := validateAccountName(name); err != nil {
-		return nil, nil, err
-	}
-	snap, err := readJSONObject(accountSnapPath(name))
+func accountClaudeAiOauth(name string) (map[string]any, error) {
+	account, err := savedAccount(name)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil, fmt.Errorf("no saved account called '%s'", name)
-		}
-		return nil, nil, err
+		return nil, err
 	}
-	oauthVal, ok := snap["claudeAiOauth"]
-	if !ok || oauthVal == nil {
-		return nil, nil, fmt.Errorf("account '%s' has no claudeAiOauth credentials", name)
+	if len(account.ClaudeAiOauth) == 0 {
+		return nil, fmt.Errorf("account '%s' has no claudeAiOauth credentials", name)
 	}
-	oauth, ok := oauthVal.(map[string]any)
-	if !ok {
-		return nil, nil, fmt.Errorf("account '%s' has invalid claudeAiOauth credentials", name)
-	}
-	return snap, oauth, nil
+	return account.ClaudeAiOauth, nil
 }
 
 func liveClaudeAiOauth() (map[string]any, error) {
@@ -174,16 +163,15 @@ func applyRefreshedTokens(oauth map[string]any, refreshed oauthRefreshResponse) 
 	}
 }
 
-func persistAccountSnapshotOAuth(name string, snap map[string]any, oauth map[string]any) error {
-	snap["claudeAiOauth"] = oauth
-	if err := writeJSONObject(accountSnapPath(name), snap, 0600); err != nil {
+func persistAccountSnapshotOAuth(name string, oauth map[string]any) error {
+	if err := db().SetClaudeAiOauth(name, oauth); err != nil {
 		return fmt.Errorf("could not update snapshot for %s: %w", name, err)
 	}
 	return nil
 }
 
-func persistAccountOAuth(name string, snap map[string]any, oauth map[string]any) error {
-	if err := persistAccountSnapshotOAuth(name, snap, oauth); err != nil {
+func persistAccountOAuth(name string, oauth map[string]any) error {
+	if err := persistAccountSnapshotOAuth(name, oauth); err != nil {
 		return err
 	}
 	active, _ := activeOAuthAccount()
@@ -223,11 +211,10 @@ func syncLiveAccountSnapshot(name string) error {
 	if err != nil {
 		return err
 	}
-	snap, _, err := accountClaudeAiOauth(name)
-	if err != nil {
+	if _, err := accountClaudeAiOauth(name); err != nil {
 		return err
 	}
-	return persistAccountSnapshotOAuth(name, snap, live)
+	return persistAccountSnapshotOAuth(name, live)
 }
 
 func refreshLiveAccountTokens(name string) (string, error) {
@@ -274,11 +261,10 @@ func refreshLiveAccountTokens(name string) (string, error) {
 		return "", fmt.Errorf("could not update live credentials: %w", err)
 	}
 
-	snap, _, err := accountClaudeAiOauth(name)
-	if err != nil {
+	if _, err := accountClaudeAiOauth(name); err != nil {
 		return "", err
 	}
-	if err := persistAccountSnapshotOAuth(name, snap, liveAfter); err != nil {
+	if err := persistAccountSnapshotOAuth(name, liveAfter); err != nil {
 		return "", err
 	}
 	return refreshed.AccessToken, nil
@@ -289,7 +275,7 @@ func refreshAccountTokens(name string) (string, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	snap, oauth, err := accountClaudeAiOauth(name)
+	oauth, err := accountClaudeAiOauth(name)
 	if err != nil {
 		return "", err
 	}
@@ -302,14 +288,14 @@ func refreshAccountTokens(name string) (string, error) {
 		return "", fmt.Errorf("account '%s' token refresh failed: %w", name, err)
 	}
 	applyRefreshedTokens(oauth, refreshed)
-	if err := persistAccountOAuth(name, snap, oauth); err != nil {
+	if err := persistAccountOAuth(name, oauth); err != nil {
 		return "", err
 	}
 	return refreshed.AccessToken, nil
 }
 
 func snapshotAccountAccessToken(name string) (string, error) {
-	_, oauth, err := accountClaudeAiOauth(name)
+	oauth, err := accountClaudeAiOauth(name)
 	if err != nil {
 		return "", err
 	}
@@ -325,7 +311,7 @@ func EnsureAccountAccessToken(name string) (string, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	snap, oauth, err := accountClaudeAiOauth(name)
+	oauth, err := accountClaudeAiOauth(name)
 	if err != nil {
 		return "", err
 	}
@@ -339,7 +325,7 @@ func EnsureAccountAccessToken(name string) (string, error) {
 			return "", fmt.Errorf("account '%s' token refresh failed: %w", name, err)
 		}
 		applyRefreshedTokens(oauth, refreshed)
-		if err := persistAccountOAuth(name, snap, oauth); err != nil {
+		if err := persistAccountOAuth(name, oauth); err != nil {
 			return "", err
 		}
 		return refreshed.AccessToken, nil
