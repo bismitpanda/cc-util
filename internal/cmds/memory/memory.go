@@ -283,7 +283,7 @@ func cmdIssues() {
 			project = item.Project
 			fmt.Println(project)
 		}
-		fmt.Printf("  %s %s\n", mark, issueText(item))
+		lipgloss.Printf("  %s %s\n", mark, issueText(item))
 	}
 }
 

@@ -348,6 +348,9 @@ func cmdToken(f *flags, set string) {
 		ui.Fatalf("%v", err)
 	}
 	udd := chrome.UserDataDir()
+	if err := checkExtension(udd, p); err != nil {
+		ui.Fatalf("%v", err)
+	}
 	if set != "" {
 		token := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(set), envToken+"="))
 		if token == "" || strings.ContainsAny(token, " \t\r\n\"'=") {
